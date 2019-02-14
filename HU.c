@@ -1024,8 +1024,6 @@ void* HU_thread(void* HU_param)
 	struct linger so_linger;
 	so_linger.l_onoff = TRUE;
 	so_linger.l_linger = 0;
-	//int len;
-    //int i;
 	s_addr.sin_family=AF_INET;
 	s_addr.sin_addr.s_addr=inet_addr(TBOX_SERVICE_ADDR);//inet_addr(TBOX_SERVICE_ADDR);htonl(INADDR_ANY);//ʽʮַתΪʽַ
 	s_addr.sin_port=htons(TBOX_SOCK_PORT);//ж˿ں:ݵĴ轫ֽתֽ
