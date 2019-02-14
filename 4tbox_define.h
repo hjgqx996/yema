@@ -34,7 +34,7 @@
 #define SAVE_LOG
 #define PRINT_LOG
 
-//#define SQL_OPEN
+#define SQL_OPEN
 
 #define SLEEP_HEART_TIME	3// min 休眠情况下检测网络心跳时间
 #define SWITCH_MSG_WAKEUP_MOD	160 // 几次无网络唤醒则切换到短信唤醒
@@ -439,6 +439,7 @@ typedef struct{
 
 	int mcu_debug;
 	int decrypt;
+	int usbnet;
 }param_t;
 
 typedef struct{
@@ -490,17 +491,19 @@ typedef struct{
 	unsigned int pc_upgrade_status;
 	unsigned int mcu_upgrade_status;
 	unsigned int vcu_upgrade_status;
-	unsigned int can_mcu_upgrade_status;
+	unsigned int mcu_mcu_upgrade_status;
 	unsigned int bms_upgrade_status;
+	
 	unsigned char pc_upgrade_path[512];
 	unsigned char mcu_upgrade_path[512];
 	unsigned char vcu_upgrade_path[512];
-	unsigned char can_mcu_upgrade_path[512];
+	unsigned char mcu_mcu_upgrade_path[512];	
 	unsigned char bms_upgrade_path[512];
+	
 	unsigned char pc_upgrade_sign[512];
 	unsigned char mcu_upgrade_sign[512];
 	unsigned char vcu_upgrade_sign[512];
-	unsigned char can_mcu_upgrade_sign[512];
+	unsigned char mcu_mcu_upgrade_sign[512];
 	unsigned char bms_upgrade_sign[512];
 }upgrade_param_t;
 
@@ -556,7 +559,7 @@ typedef struct{
 #define IGNITION_CMD_TO_MCU 0x01
 #define FIND_CAR_CMD_TO_MCU 0x02
 
-#define ERROR_REPLACEMENT_TIME 40		//replacement data in 30s when error appear
+#define ERROR_REPLACEMENT_TIME 35		//replacement data in 30s when error appear
 
 #define HARDWARE_VERSION "EC20_YEMA_TBOX_V0.1"
 #define FIREWARE_VERSION "EC20CEFAGR06A01M4G_OCPU"

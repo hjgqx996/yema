@@ -62,7 +62,7 @@ void protobuf_AssignDesc_ctrl_5ftbox_5fparam_2eproto() {
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(CtrlTboxParamMessage, _internal_metadata_),
       -1);
   ConfigInfo_descriptor_ = file->message_type(1);
-  static const int ConfigInfo_offsets_[15] = {
+  static const int ConfigInfo_offsets_[18] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ConfigInfo, local_cycle_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ConfigInfo, report_cycle_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ConfigInfo, alarm_cycle_),
@@ -78,6 +78,9 @@ void protobuf_AssignDesc_ctrl_5ftbox_5fparam_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ConfigInfo, mode_begin_time_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ConfigInfo, mode_time_quantum_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ConfigInfo, log_level_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ConfigInfo, offline_config_param_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ConfigInfo, peps_security_auth_key_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ConfigInfo, tbox_usb_net_switch_),
   };
   ConfigInfo_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -171,7 +174,7 @@ void protobuf_AddDesc_ctrl_5ftbox_5fparam_2eproto() {
     "\n\025ctrl_tbox_param.proto\"|\n\024CtrlTboxParam"
     "Message\022 \n\013config_info\030\001 \001(\0132\013.ConfigInf"
     "o\022\"\n\014version_info\030\002 \001(\0132\014.VersionInfo\022\036\n"
-    "\nstate_info\030\003 \001(\0132\n.StateInfo\"\225\003\n\nConfig"
+    "\nstate_info\030\003 \001(\0132\n.StateInfo\"\360\003\n\nConfig"
     "Info\022\023\n\013local_cycle\030\001 \001(\r\022\024\n\014report_cycl"
     "e\030\002 \001(\r\022\023\n\013alarm_cycle\030\003 \001(\r\022\037\n\027enterpri"
     "se_platform_url\030\004 \001(\t\022 \n\030enterprise_plat"
@@ -181,14 +184,18 @@ void protobuf_AddDesc_ctrl_5ftbox_5fparam_2eproto() {
     "(\r\022\020\n\010interval\030\n \001(\r\022\027\n\017heartbeat_cycle\030"
     "\013 \001(\r\022\034\n\tmode_type\030\014 \001(\0162\t.ModeType\022\027\n\017m"
     "ode_begin_time\030\r \001(\006\022\031\n\021mode_time_quantu"
-    "m\030\016 \001(\r\022\034\n\tlog_level\030\017 \001(\0162\t.LogLevel\"e\n"
-    "\013VersionInfo\022\032\n\022upper_ware_version\030\001 \001(\t"
-    "\022\032\n\022lower_ware_version\030\002 \001(\t\022\036\n\026upper_fi"
-    "rmware_version\030\003 \001(\t\"\035\n\tStateInfo\022\020\n\010sam"
-    "pling\030\001 \001(\010*=\n\010ModeType\022\n\n\006NORMAL\020\000\022\021\n\rC"
-    "AN_FILE_MODE\020\001\022\022\n\016TBOX_FILE_MODE\020\002*7\n\010Lo"
-    "gLevel\022\t\n\005ERROR\020\000\022\013\n\007WARNING\020\001\022\010\n\004INFO\020\002"
-    "\022\t\n\005DEBUG\020\003", 811);
+    "m\030\016 \001(\r\022\034\n\tlog_level\030\017 \001(\0162\t.LogLevel\022\034\n"
+    "\024offline_config_param\030\020 \001(\t\022\036\n\026peps_secu"
+    "rity_auth_key\030\021 \001(\t\022\033\n\023tbox_usb_net_swit"
+    "ch\030\022 \001(\r\"e\n\013VersionInfo\022\032\n\022upper_ware_ve"
+    "rsion\030\001 \001(\t\022\032\n\022lower_ware_version\030\002 \001(\t\022"
+    "\036\n\026upper_firmware_version\030\003 \001(\t\"\035\n\tState"
+    "Info\022\020\n\010sampling\030\001 \001(\010*P\n\010ModeType\022\n\n\006NO"
+    "RMAL\020\000\022\021\n\rCAN_FILE_MODE\020\001\022\022\n\016TBOX_FILE_M"
+    "ODE\020\002\022\021\n\rSAMPLING_MODE\020\003*G\n\010LogLevel\022\r\n\t"
+    "LOG_ERROR\020\000\022\017\n\013LOG_WARNING\020\001\022\014\n\010LOG_INFO"
+    "\020\002\022\r\n\tLOG_DEBUG\020\003B1\n\034com.mx.server.remot"
+    "e.v2.beanB\021CtrlTboxParamBean", 988);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "ctrl_tbox_param.proto", &protobuf_RegisterTypes);
   CtrlTboxParamMessage::default_instance_ = new CtrlTboxParamMessage();
@@ -217,6 +224,7 @@ bool ModeType_IsValid(int value) {
     case 0:
     case 1:
     case 2:
+    case 3:
       return true;
     default:
       return false;
@@ -734,6 +742,9 @@ const int ConfigInfo::kModeTypeFieldNumber;
 const int ConfigInfo::kModeBeginTimeFieldNumber;
 const int ConfigInfo::kModeTimeQuantumFieldNumber;
 const int ConfigInfo::kLogLevelFieldNumber;
+const int ConfigInfo::kOfflineConfigParamFieldNumber;
+const int ConfigInfo::kPepsSecurityAuthKeyFieldNumber;
+const int ConfigInfo::kTboxUsbNetSwitchFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 ConfigInfo::ConfigInfo()
@@ -771,6 +782,9 @@ void ConfigInfo::SharedCtor() {
   mode_begin_time_ = GOOGLE_ULONGLONG(0);
   mode_time_quantum_ = 0u;
   log_level_ = 0;
+  offline_config_param_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  peps_security_auth_key_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  tbox_usb_net_switch_ = 0u;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -782,6 +796,8 @@ ConfigInfo::~ConfigInfo() {
 void ConfigInfo::SharedDtor() {
   enterprise_platform_url_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   public_platform_url_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  offline_config_param_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  peps_security_auth_key_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   if (this != default_instance_) {
   }
 }
@@ -840,8 +856,17 @@ void ConfigInfo::Clear() {
       public_platform_url_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
     }
   }
-  if (_has_bits_[8 / 32] & 32512u) {
+  if (_has_bits_[8 / 32] & 65280u) {
     ZR_(platform_timeout_, log_level_);
+    if (has_offline_config_param()) {
+      offline_config_param_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+    }
+  }
+  if (_has_bits_[16 / 32] & 196608u) {
+    if (has_peps_security_auth_key()) {
+      peps_security_auth_key_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+    }
+    tbox_usb_net_switch_ = 0u;
   }
 
 #undef ZR_HELPER_
@@ -859,7 +884,7 @@ bool ConfigInfo::MergePartialFromCodedStream(
   ::google::protobuf::uint32 tag;
   // @@protoc_insertion_point(parse_start:ConfigInfo)
   for (;;) {
-    ::std::pair< ::google::protobuf::uint32, bool> p = input->ReadTagWithCutoff(127);
+    ::std::pair< ::google::protobuf::uint32, bool> p = input->ReadTagWithCutoff(16383);
     tag = p.first;
     if (!p.second) goto handle_unusual;
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
@@ -1097,6 +1122,55 @@ bool ConfigInfo::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(130)) goto parse_offline_config_param;
+        break;
+      }
+
+      // optional string offline_config_param = 16;
+      case 16: {
+        if (tag == 130) {
+         parse_offline_config_param:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_offline_config_param()));
+          ::google::protobuf::internal::WireFormat::VerifyUTF8StringNamedField(
+            this->offline_config_param().data(), this->offline_config_param().length(),
+            ::google::protobuf::internal::WireFormat::PARSE,
+            "ConfigInfo.offline_config_param");
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(138)) goto parse_peps_security_auth_key;
+        break;
+      }
+
+      // optional string peps_security_auth_key = 17;
+      case 17: {
+        if (tag == 138) {
+         parse_peps_security_auth_key:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_peps_security_auth_key()));
+          ::google::protobuf::internal::WireFormat::VerifyUTF8StringNamedField(
+            this->peps_security_auth_key().data(), this->peps_security_auth_key().length(),
+            ::google::protobuf::internal::WireFormat::PARSE,
+            "ConfigInfo.peps_security_auth_key");
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(144)) goto parse_tbox_usb_net_switch;
+        break;
+      }
+
+      // optional uint32 tbox_usb_net_switch = 18;
+      case 18: {
+        if (tag == 144) {
+         parse_tbox_usb_net_switch:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::uint32, ::google::protobuf::internal::WireFormatLite::TYPE_UINT32>(
+                 input, &tbox_usb_net_switch_)));
+          set_has_tbox_usb_net_switch();
+        } else {
+          goto handle_unusual;
+        }
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -1213,6 +1287,31 @@ void ConfigInfo::SerializeWithCachedSizes(
       15, this->log_level(), output);
   }
 
+  // optional string offline_config_param = 16;
+  if (has_offline_config_param()) {
+    ::google::protobuf::internal::WireFormat::VerifyUTF8StringNamedField(
+      this->offline_config_param().data(), this->offline_config_param().length(),
+      ::google::protobuf::internal::WireFormat::SERIALIZE,
+      "ConfigInfo.offline_config_param");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      16, this->offline_config_param(), output);
+  }
+
+  // optional string peps_security_auth_key = 17;
+  if (has_peps_security_auth_key()) {
+    ::google::protobuf::internal::WireFormat::VerifyUTF8StringNamedField(
+      this->peps_security_auth_key().data(), this->peps_security_auth_key().length(),
+      ::google::protobuf::internal::WireFormat::SERIALIZE,
+      "ConfigInfo.peps_security_auth_key");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      17, this->peps_security_auth_key(), output);
+  }
+
+  // optional uint32 tbox_usb_net_switch = 18;
+  if (has_tbox_usb_net_switch()) {
+    ::google::protobuf::internal::WireFormatLite::WriteUInt32(18, this->tbox_usb_net_switch(), output);
+  }
+
   if (_internal_metadata_.have_unknown_fields()) {
     ::google::protobuf::internal::WireFormat::SerializeUnknownFields(
         unknown_fields(), output);
@@ -1312,6 +1411,33 @@ void ConfigInfo::SerializeWithCachedSizes(
       15, this->log_level(), target);
   }
 
+  // optional string offline_config_param = 16;
+  if (has_offline_config_param()) {
+    ::google::protobuf::internal::WireFormat::VerifyUTF8StringNamedField(
+      this->offline_config_param().data(), this->offline_config_param().length(),
+      ::google::protobuf::internal::WireFormat::SERIALIZE,
+      "ConfigInfo.offline_config_param");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        16, this->offline_config_param(), target);
+  }
+
+  // optional string peps_security_auth_key = 17;
+  if (has_peps_security_auth_key()) {
+    ::google::protobuf::internal::WireFormat::VerifyUTF8StringNamedField(
+      this->peps_security_auth_key().data(), this->peps_security_auth_key().length(),
+      ::google::protobuf::internal::WireFormat::SERIALIZE,
+      "ConfigInfo.peps_security_auth_key");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        17, this->peps_security_auth_key(), target);
+  }
+
+  // optional uint32 tbox_usb_net_switch = 18;
+  if (has_tbox_usb_net_switch()) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteUInt32ToArray(18, this->tbox_usb_net_switch(), target);
+  }
+
   if (_internal_metadata_.have_unknown_fields()) {
     target = ::google::protobuf::internal::WireFormat::SerializeUnknownFieldsToArray(
         unknown_fields(), target);
@@ -1382,7 +1508,7 @@ int ConfigInfo::ByteSize() const {
     }
 
   }
-  if (_has_bits_[8 / 32] & 32512u) {
+  if (_has_bits_[8 / 32] & 65280u) {
     // optional uint32 platform_timeout = 9;
     if (has_platform_timeout()) {
       total_size += 1 +
@@ -1426,6 +1552,29 @@ int ConfigInfo::ByteSize() const {
     if (has_log_level()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::EnumSize(this->log_level());
+    }
+
+    // optional string offline_config_param = 16;
+    if (has_offline_config_param()) {
+      total_size += 2 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->offline_config_param());
+    }
+
+  }
+  if (_has_bits_[16 / 32] & 196608u) {
+    // optional string peps_security_auth_key = 17;
+    if (has_peps_security_auth_key()) {
+      total_size += 2 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->peps_security_auth_key());
+    }
+
+    // optional uint32 tbox_usb_net_switch = 18;
+    if (has_tbox_usb_net_switch()) {
+      total_size += 2 +
+        ::google::protobuf::internal::WireFormatLite::UInt32Size(
+          this->tbox_usb_net_switch());
     }
 
   }
@@ -1512,6 +1661,19 @@ void ConfigInfo::MergeFrom(const ConfigInfo& from) {
     if (from.has_log_level()) {
       set_log_level(from.log_level());
     }
+    if (from.has_offline_config_param()) {
+      set_has_offline_config_param();
+      offline_config_param_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.offline_config_param_);
+    }
+  }
+  if (from._has_bits_[16 / 32] & (0xffu << (16 % 32))) {
+    if (from.has_peps_security_auth_key()) {
+      set_has_peps_security_auth_key();
+      peps_security_auth_key_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.peps_security_auth_key_);
+    }
+    if (from.has_tbox_usb_net_switch()) {
+      set_tbox_usb_net_switch(from.tbox_usb_net_switch());
+    }
   }
   if (from._internal_metadata_.have_unknown_fields()) {
     mutable_unknown_fields()->MergeFrom(from.unknown_fields());
@@ -1557,6 +1719,9 @@ void ConfigInfo::InternalSwap(ConfigInfo* other) {
   std::swap(mode_begin_time_, other->mode_begin_time_);
   std::swap(mode_time_quantum_, other->mode_time_quantum_);
   std::swap(log_level_, other->log_level_);
+  offline_config_param_.Swap(&other->offline_config_param_);
+  peps_security_auth_key_.Swap(&other->peps_security_auth_key_);
+  std::swap(tbox_usb_net_switch_, other->tbox_usb_net_switch_);
   std::swap(_has_bits_[0], other->_has_bits_[0]);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
@@ -1993,6 +2158,138 @@ void ConfigInfo::clear_log_level() {
   set_has_log_level();
   log_level_ = value;
   // @@protoc_insertion_point(field_set:ConfigInfo.log_level)
+}
+
+// optional string offline_config_param = 16;
+bool ConfigInfo::has_offline_config_param() const {
+  return (_has_bits_[0] & 0x00008000u) != 0;
+}
+void ConfigInfo::set_has_offline_config_param() {
+  _has_bits_[0] |= 0x00008000u;
+}
+void ConfigInfo::clear_has_offline_config_param() {
+  _has_bits_[0] &= ~0x00008000u;
+}
+void ConfigInfo::clear_offline_config_param() {
+  offline_config_param_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  clear_has_offline_config_param();
+}
+ const ::std::string& ConfigInfo::offline_config_param() const {
+  // @@protoc_insertion_point(field_get:ConfigInfo.offline_config_param)
+  return offline_config_param_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+ void ConfigInfo::set_offline_config_param(const ::std::string& value) {
+  set_has_offline_config_param();
+  offline_config_param_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:ConfigInfo.offline_config_param)
+}
+ void ConfigInfo::set_offline_config_param(const char* value) {
+  set_has_offline_config_param();
+  offline_config_param_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:ConfigInfo.offline_config_param)
+}
+ void ConfigInfo::set_offline_config_param(const char* value, size_t size) {
+  set_has_offline_config_param();
+  offline_config_param_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:ConfigInfo.offline_config_param)
+}
+ ::std::string* ConfigInfo::mutable_offline_config_param() {
+  set_has_offline_config_param();
+  // @@protoc_insertion_point(field_mutable:ConfigInfo.offline_config_param)
+  return offline_config_param_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+ ::std::string* ConfigInfo::release_offline_config_param() {
+  // @@protoc_insertion_point(field_release:ConfigInfo.offline_config_param)
+  clear_has_offline_config_param();
+  return offline_config_param_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+ void ConfigInfo::set_allocated_offline_config_param(::std::string* offline_config_param) {
+  if (offline_config_param != NULL) {
+    set_has_offline_config_param();
+  } else {
+    clear_has_offline_config_param();
+  }
+  offline_config_param_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), offline_config_param);
+  // @@protoc_insertion_point(field_set_allocated:ConfigInfo.offline_config_param)
+}
+
+// optional string peps_security_auth_key = 17;
+bool ConfigInfo::has_peps_security_auth_key() const {
+  return (_has_bits_[0] & 0x00010000u) != 0;
+}
+void ConfigInfo::set_has_peps_security_auth_key() {
+  _has_bits_[0] |= 0x00010000u;
+}
+void ConfigInfo::clear_has_peps_security_auth_key() {
+  _has_bits_[0] &= ~0x00010000u;
+}
+void ConfigInfo::clear_peps_security_auth_key() {
+  peps_security_auth_key_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  clear_has_peps_security_auth_key();
+}
+ const ::std::string& ConfigInfo::peps_security_auth_key() const {
+  // @@protoc_insertion_point(field_get:ConfigInfo.peps_security_auth_key)
+  return peps_security_auth_key_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+ void ConfigInfo::set_peps_security_auth_key(const ::std::string& value) {
+  set_has_peps_security_auth_key();
+  peps_security_auth_key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:ConfigInfo.peps_security_auth_key)
+}
+ void ConfigInfo::set_peps_security_auth_key(const char* value) {
+  set_has_peps_security_auth_key();
+  peps_security_auth_key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:ConfigInfo.peps_security_auth_key)
+}
+ void ConfigInfo::set_peps_security_auth_key(const char* value, size_t size) {
+  set_has_peps_security_auth_key();
+  peps_security_auth_key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:ConfigInfo.peps_security_auth_key)
+}
+ ::std::string* ConfigInfo::mutable_peps_security_auth_key() {
+  set_has_peps_security_auth_key();
+  // @@protoc_insertion_point(field_mutable:ConfigInfo.peps_security_auth_key)
+  return peps_security_auth_key_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+ ::std::string* ConfigInfo::release_peps_security_auth_key() {
+  // @@protoc_insertion_point(field_release:ConfigInfo.peps_security_auth_key)
+  clear_has_peps_security_auth_key();
+  return peps_security_auth_key_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+ void ConfigInfo::set_allocated_peps_security_auth_key(::std::string* peps_security_auth_key) {
+  if (peps_security_auth_key != NULL) {
+    set_has_peps_security_auth_key();
+  } else {
+    clear_has_peps_security_auth_key();
+  }
+  peps_security_auth_key_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), peps_security_auth_key);
+  // @@protoc_insertion_point(field_set_allocated:ConfigInfo.peps_security_auth_key)
+}
+
+// optional uint32 tbox_usb_net_switch = 18;
+bool ConfigInfo::has_tbox_usb_net_switch() const {
+  return (_has_bits_[0] & 0x00020000u) != 0;
+}
+void ConfigInfo::set_has_tbox_usb_net_switch() {
+  _has_bits_[0] |= 0x00020000u;
+}
+void ConfigInfo::clear_has_tbox_usb_net_switch() {
+  _has_bits_[0] &= ~0x00020000u;
+}
+void ConfigInfo::clear_tbox_usb_net_switch() {
+  tbox_usb_net_switch_ = 0u;
+  clear_has_tbox_usb_net_switch();
+}
+ ::google::protobuf::uint32 ConfigInfo::tbox_usb_net_switch() const {
+  // @@protoc_insertion_point(field_get:ConfigInfo.tbox_usb_net_switch)
+  return tbox_usb_net_switch_;
+}
+ void ConfigInfo::set_tbox_usb_net_switch(::google::protobuf::uint32 value) {
+  set_has_tbox_usb_net_switch();
+  tbox_usb_net_switch_ = value;
+  // @@protoc_insertion_point(field_set:ConfigInfo.tbox_usb_net_switch)
 }
 
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS

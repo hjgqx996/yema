@@ -583,6 +583,7 @@ void data_replacement()
 			int offset = 0;
 			head_pack(data,&offset,DATA_CAR_MSG_REP,DATA_CMD,NO_ENCRYPT);
 			tcp_heart_send(sock_cli,data,length);
+			//printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&send req date = %d %d\n",(int)data[28],(int)data[29]);
 		}
 
 	}
@@ -731,6 +732,7 @@ void sql_save_send_data(sqlite3 *db,unsigned char *data,date_time param_date,int
 
 bool sql_save_data(unsigned char *data,date_time param_date,int length)
 {
+	//printf("$$$$$$$$$$$$$$$$$$$$$$$ insert date = %d %d\n",param_date.minute,param_date.second);
 	int i;  
 	int ret = true;
 	char date[25] = {0};
@@ -889,7 +891,7 @@ void* sql_thread(void* sql_param)
 			date_pack(data,date,&offset);
 			offset = gl_data.len;
 			length = gl_data.len;
-
+			//printf("$$$$$$$$$$$$$$$$$$$$$$$ now date = %d %d\n",date.minute,date.second);
 			if(--heart_test_timer <= 0)
 			{
 				if((param.GB32690_type == e_off) || (param.GB32690_type == e_normal))

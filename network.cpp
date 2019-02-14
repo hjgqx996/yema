@@ -69,7 +69,11 @@ int plat_sock;
 int msgid_net_to_mcu;
 bool platform_link_on = false;
 bool connected = false;
-extern unsigned char app_version[5];
+
+extern unsigned char EOL[32];
+extern unsigned char pipe_Skey[32];
+
+extern unsigned char app_version[32];
 extern unsigned char mcu_version[32];
 
 extern unsigned char air_state[20];
@@ -96,7 +100,10 @@ static unsigned long long truck_door_lock_request_id;
 
 static unsigned long long door_control_valide;
 static unsigned long long air_control_valide;
-
+ql_data_call_info_s g_call_info;
+char dev_name[30];
+#define BUF_SIZE 128
+ql_data_call_s g_call;
 enum remote_control_type{
 	no_control_type =0 ,
 	find_car_type ,
@@ -113,9 +120,189 @@ enum remote_control_type{
 	truck_door_lock_type,
 	panel_protection_type
 };
+#define MAX_COUNT 2
+struct network_record
+{
+	int apnId;
+	int timeout;
+	int sockfd;
+	int port;
+	char apn[64];
+	char ip[64];
+	char dealer[20];
+}record[MAX_COUNT];
 
+char *dev_name1=NULL;
 unsigned char statusBuf[BUFFER_SIZE];
 static remote_control_type control_type = no_control_type;
+
+ int config_route(int sockfd, int timeout, char *dev_nam)
+{/*dev_name is network interface name, such as rmnet_dataX, X begin with 0*/
+	printf("0!!!!!\n");
+	printf("dev_name:%s\n",dev_nam);
+	uint32_t optLen=0;
+	int retval = 0;
+	printf("dev_name:%s\n",dev_nam);
+	if (dev_nam != NULL)
+	{
+		struct ifreq ifr;
+		optLen = sizeof(ifr);
+		memset(&ifr, 0, optLen);
+		strncpy(ifr.ifr_name, dev_nam, sizeof(ifr.ifr_name));
+		printf("dev_name:%s\n",dev_nam);
+		
+		retval = setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, optLen);
+		printf("setsockopt was seted\n");
+		if (retval == -1)
+		{
+			printf("set new device name: %s failed, errno: %d, reason: %s", dev_nam, errno, strerror(errno));
+		}
+		else
+		{
+			memset(&ifr, 0, optLen);
+			if (getsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, &optLen) == -1)
+			{
+				printf("get new device name failed, errno: %d, reason: %s", errno, strerror(errno));
+			}
+			else
+			{
+				printf("socket bind to device: %s", ifr.ifr_name);
+			}
+		}
+		
+	}
+	return retval;
+}
+
+int unlinkNetwork(int apnId)
+{
+	ql_data_call_error_e err = QL_DATA_CALL_ERROR_NONE;
+	g_call.profile_idx =apnId;
+	g_call.ip_family = QL_DATA_CALL_TYPE_IPV4;
+	g_call.reconnect = true;
+	printf("stop the network\n");
+	if(ql_data_call_stop(g_call.profile_idx, g_call.ip_family, &err)) {
+		printf("stop data call failure: %d\n", err);
+		ql_data_call_destroy();
+		return -1;
+	}
+	printf("exit process wait about 1 seconds\n");
+	sleep(1);
+	ql_data_call_destroy();
+	return 0;
+}
+int configureNetwork(int apnId,char *apnName)
+{
+	ql_apn_info_s apn,apn_get;
+	memset(&apn, 0, sizeof(apn));
+	/*the scop of the apnId is 1-24*/
+	if(apnId < 0 || apnId> 24) {
+		printf("\nInvalid profile index");
+		return -1;
+	}
+	apn.profile_idx = apnId;
+	apn.pdp_type = QL_APN_PDP_TYPE_IPV4;
+	 
+	if(apnName ==NULL) {
+		printf("\nInvalid apnName");
+		return -1;
+	}
+	strcpy(apn.apn_name, apnName);
+	if(QL_APN_Set(&apn)) {
+		printf("\nSet apn failed");
+		return -1;
+	}
+	if(QL_APN_Get(apnId, &apn_get)) {
+		printf("\nGet apn failed");
+		return -1;
+	}
+	printf("the set apn is :%s",apn_get.apn_name);
+	if(apnId==1)
+	{
+		Ql_SendAT((char*)"AT+CGDCONT=1,\"IP\",\"CMIOTYMCLW.JS\"", (char*)"OK", 1000);//CMIOTGGG
+	}
+	else if(apnId==2)
+	{
+		Ql_SendAT((char*)"AT+CGDCONT=2,\"IP\",\"CMIOT\"", (char*)"OK", 1000);//CMIOTNBECARAPN.ZJ
+	}
+	return 0;
+
+}
+
+char * linkNetwork(int apnId)
+{
+	ql_data_call_error_e err = QL_DATA_CALL_ERROR_NONE;
+	g_call.profile_idx =apnId;
+	g_call.ip_family = QL_DATA_CALL_TYPE_IPV4;
+	g_call.reconnect = true;
+	ql_data_call_init(data_call_state_callback);
+	if(ql_data_call_start(&g_call, &err)) {
+		printf("start data call failure: %x\n", err);
+		ql_data_call_destroy();
+		return NULL;
+	}
+	if(ql_data_call_info_get(g_call.profile_idx, g_call.ip_family, &g_call_info, &err)) {
+		printf("get data call failure: %d\n", err);
+		ql_data_call_destroy();
+		return NULL;
+	}
+	if(QL_DATA_CALL_CONNECTED == g_call_info.v4.state )//&& apnId==1
+	{
+		printf("linkNetwork:connected\n");
+		char ICCID[BUF_SIZE] = {0};
+		char IMSI[BUF_SIZE] = {0};
+		char IMEI[BUF_SIZE] = {0};
+		connected = TRUE;
+		if(param.GB32690_type <= 0)
+		{
+			printf("param.GB32690_type <= 0 !!!!!!!!!!!\n");
+			QL_SIM_GetICCID(E_QL_SIM_EXTERNAL_SLOT_1,ICCID, BUF_SIZE);     
+			Log(__FUNCTION__,"ICCID: %s\n",ICCID);	
+			if(strcmp(ICCID,param.ICCID))
+			{
+				memcpy(param.ICCID,ICCID,sizeof(param.ICCID)-1);
+				init_save_param(PARAM_PATH);
+				init_save_param(BAK_PARAM_PATH);
+			}			
+			QL_SIM_GetIMSI(E_QL_SIM_EXTERNAL_SLOT_1,IMSI, BUF_SIZE);
+			Log(__FUNCTION__,"IMSI: %s\n",IMSI);
+			if(strcmp(IMSI,param.IMSI))
+			{
+				memcpy(param.IMSI,IMSI,sizeof(param.IMSI)-1);
+				init_save_param(PARAM_PATH);
+				init_save_param(BAK_PARAM_PATH);
+			}
+			QL_DEV_GetImei(IMEI, BUF_SIZE);
+			Log(__FUNCTION__,"IMEI: %s\n",IMEI);
+			if(strcmp(IMEI,param.IMEI))
+			{
+				memcpy(param.IMEI,IMEI,sizeof(param.IMEI)-1);
+				init_save_param(PARAM_PATH);
+				init_save_param(BAK_PARAM_PATH);
+			}
+		}
+
+	}
+	if(QL_DATA_CALL_TYPE_IPV4 == g_call.ip_family || QL_DATA_CALL_TYPE_IPV4V6 == g_call.ip_family) {
+		printf("the devices name:%s!!!!!\n",(char *)g_call_info.v4.name);
+		printf("The profile id %d IPv4 information\n", g_call.profile_idx);
+		printf("\tstate:                 %s\n",
+			QL_DATA_CALL_CONNECTED == g_call_info.v4.state ? "Connected" : "Disconnected");
+		printf("\tIP address:            %s\n", inet_ntoa(g_call_info.v4.addr.ip));
+		printf("\tGateway address:       %s\n", inet_ntoa(g_call_info.v4.addr.gateway));
+		printf("\tPrimary DNS address:   %s\n", inet_ntoa(g_call_info.v4.addr.pri_dns));
+		printf("\tSecond DNS address:    %s\n", inet_ntoa(g_call_info.v4.addr.sec_dns));
+		printf("\tPackets Receive:       %ld\n", g_call_info.v4.stats.pkts_rx);
+		printf("\tBytes Transmit:        %lld\n", g_call_info.v4.stats.bytes_tx);
+		printf("\tPackets Transmit:      %ld\n", g_call_info.v4.stats.pkts_tx);
+		printf("\tBytes Receive:        %lld\n", g_call_info.v4.stats.bytes_rx);
+		printf("\tPackets drop Transmit: %ld\n", g_call_info.v4.stats.pkts_dropped_tx);
+		printf("\tPackets drop Receive:  %ld\n", g_call_info.v4.stats.pkts_dropped_rx);
+		
+	}
+	return (char *)g_call_info.v4.name;
+
+}
 
 static void deal_net_check(int sock)
 {
@@ -139,6 +326,9 @@ static void deal_net_check(int sock)
 	configInfo.set_platform_timeout(param.tcp_rcv_timeout);
 	configInfo.set_interval(param.next_login_time);
 	configInfo.set_heartbeat_cycle(param.heart_period);
+	configInfo.set_tbox_usb_net_switch(param.usbnet);
+	configInfo.set_offline_config_param((const char*)EOL);
+	configInfo.set_peps_security_auth_key((const char*)pipe_Skey);
 	ctrlParamMessage.set_allocated_config_info(&configInfo);
 
 	//version info
@@ -190,12 +380,15 @@ static void deal_get_version(int sock,unsigned char *buf)
 	
 	Log(__FUNCTION__,"mcu_version = %s\n",mcu_version);
 
-	
+	char firewareVersion[32]={0};
+	getFirewareVersion(firewareVersion);
 	TermVersionUpload *firmware_ver = termVersionUploadData.add_termversionupload();
 	firmware_ver->set_termtype(5);
 	firmware_ver->set_manufacturerid("LUCHANG");
 	firmware_ver->set_hardwareversion("EC20_YEMA_TBOX_V0.1");
-	firmware_ver->set_firmwareversion("EC20CEFAR06A01M4G_OCPU_BETA0910");
+	firmware_ver->set_firmwareversion(firewareVersion);
+	
+	Log(__FUNCTION__,"firewareVersion = %s\n",firewareVersion);
 
 	termVersionUploadData.SerializeToString(&msg);
 
@@ -222,12 +415,12 @@ static void deal_net_set(int sock,unsigned char *buf)
 	{
 		return;
 	}*/
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_local_cycle());
 	{
 		param.save_period = ctrlParamMessage.config_info().local_cycle();
 		Log(__FUNCTION__,"param.save_period=%d",param.save_period);
 	}
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_report_cycle())
 	{
 		param.data_period = ctrlParamMessage.config_info().report_cycle();
 		Log(__FUNCTION__,"param.data_period=%d",param.data_period);
@@ -237,48 +430,59 @@ static void deal_net_set(int sock,unsigned char *buf)
 		param.alert_period = ctrlParamMessage.config_info().alarm_cycle();
 		Log(__FUNCTION__,"param.alert_period=%d",param.alert_period);
 	}
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_enterprise_platform_url())
 	{
 		str_len = ctrlParamMessage.config_info().enterprise_platform_url().length();
 		ctrlParamMessage.config_info().enterprise_platform_url().copy(param.url,str_len,0);
 		Log(__FUNCTION__,"param.url=%s",param.url);
 	}
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_enterprise_platform_port())
 	{
 		param.port = ctrlParamMessage.config_info().enterprise_platform_port();
 		Log(__FUNCTION__,"param.port=%d",param.port);
 	}
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_public_platform_url())
 	{
 		str_len = ctrlParamMessage.config_info().public_platform_url().length();
 		ctrlParamMessage.config_info().public_platform_url().copy(param.platform_url,str_len,0);
 		Log(__FUNCTION__,"param.platform_url=%s",param.platform_url);
 	}
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_public_platform_port())
 	{
 		param.platform_port= ctrlParamMessage.config_info().public_platform_port();
 		Log(__FUNCTION__,"param.platform_port=%d",param.platform_port);
 	}
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_tbox_timeout())
 	{
 		param.tbox_timeout= ctrlParamMessage.config_info().tbox_timeout();
 		Log(__FUNCTION__,"param.tbox_timeout=%d",param.tbox_timeout);
 	}
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_platform_timeout())
 	{
 		param.tcp_rcv_timeout= ctrlParamMessage.config_info().platform_timeout();
 		Log(__FUNCTION__,"param.tcp_rcv_timeout=%d",param.tcp_rcv_timeout);
 	}
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_interval())
 	{
 		param.next_login_time= ctrlParamMessage.config_info().interval();
 		Log(__FUNCTION__,"param.next_login_time=%d",param.next_login_time);
 	}
-	if(ctrlParamMessage.config_info().has_alarm_cycle())
+	if(ctrlParamMessage.config_info().has_heartbeat_cycle())
 	{
 		param.heart_period= ctrlParamMessage.config_info().heartbeat_cycle();
 		Log(__FUNCTION__,"param.heart_period=%d",param.heart_period);
 	}
+	if(ctrlParamMessage.config_info().has_tbox_usb_net_switch())
+	{
+		param.usbnet= ctrlParamMessage.config_info().tbox_usb_net_switch();
+		if(param.usbnet){
+			system("iptables -D FORWARD -m physdev --physdev-in ecm0 -j DROP");
+		}else{
+			system("iptables -A FORWARD -m physdev --physdev-in ecm0 -j DROP");
+		}
+		Log(__FUNCTION__,"param.usbnet=%d",param.usbnet);
+	}
+	
 	init_save_param(PARAM_PATH);
 	init_save_param(BAK_PARAM_PATH);
 	get_current_date(&date);
@@ -344,6 +548,8 @@ static void deal_upgrade(int sock,unsigned char *buf)
 	data[offset++] = buf[CHECK_CMD_NUM_ADDR];
 	memcpy(data+offset,msg.data(),msg.length());
 	offset += msg.length();
+	
+	Log(__FUNCTION__,"upgrade type = %d\n",ctrlFotaData.termtype());
 	Log(__FUNCTION__,"offset = %d\n",offset);
 	tcp_heart_send(sock,data,offset);
 	
@@ -367,27 +573,26 @@ static void deal_upgrade(int sock,unsigned char *buf)
 		memcpy(upgrade_param.mcu_upgrade_sign,ctrlFotaData.sign().c_str(),ctrlFotaData.sign().length());
 	}
 
-	
 	if(ctrlFotaData.termtype() == 6){
 		upgrade_param.vcu_upgrade_status = 1;
-		memset(upgrade_param.vcu_upgrade_path,0,sizeof(upgrade_param.pc_upgrade_path));
-		memset(upgrade_param.vcu_upgrade_sign,0,sizeof(upgrade_param.pc_upgrade_sign));
+		memset(upgrade_param.vcu_upgrade_path,0,sizeof(upgrade_param.vcu_upgrade_path));
+		memset(upgrade_param.vcu_upgrade_sign,0,sizeof(upgrade_param.vcu_upgrade_sign));
 		memcpy(upgrade_param.vcu_upgrade_path,ctrlFotaData.upgradepath().c_str(),ctrlFotaData.upgradepath().length());
 		memcpy(upgrade_param.vcu_upgrade_sign,ctrlFotaData.sign().c_str(),ctrlFotaData.sign().length());
 	}
 
 	if(ctrlFotaData.termtype() == 7){
-		upgrade_param.can_mcu_upgrade_status = 1;
-		memset(upgrade_param.can_mcu_upgrade_path,0,sizeof(upgrade_param.mcu_upgrade_path));
-		memset(upgrade_param.can_mcu_upgrade_sign,0,sizeof(upgrade_param.mcu_upgrade_sign));
-		memcpy(upgrade_param.can_mcu_upgrade_path,ctrlFotaData.upgradepath().c_str(),ctrlFotaData.upgradepath().length());
-		memcpy(upgrade_param.can_mcu_upgrade_sign,ctrlFotaData.sign().c_str(),ctrlFotaData.sign().length());
+		upgrade_param.mcu_upgrade_status = 1;
+		memset(upgrade_param.mcu_mcu_upgrade_path,0,sizeof(upgrade_param.mcu_mcu_upgrade_path));
+		memset(upgrade_param.mcu_mcu_upgrade_sign,0,sizeof(upgrade_param.mcu_mcu_upgrade_sign));
+		memcpy(upgrade_param.mcu_mcu_upgrade_path,ctrlFotaData.upgradepath().c_str(),ctrlFotaData.upgradepath().length());
+		memcpy(upgrade_param.mcu_mcu_upgrade_sign,ctrlFotaData.sign().c_str(),ctrlFotaData.sign().length());
 	}
 
 	if(ctrlFotaData.termtype() == 8){
 		upgrade_param.bms_upgrade_status = 1;
-		memset(upgrade_param.bms_upgrade_path,0,sizeof(upgrade_param.mcu_upgrade_path));
-		memset(upgrade_param.bms_upgrade_sign,0,sizeof(upgrade_param.mcu_upgrade_sign));
+		memset(upgrade_param.bms_upgrade_path,0,sizeof(upgrade_param.bms_upgrade_path));
+		memset(upgrade_param.bms_upgrade_sign,0,sizeof(upgrade_param.bms_upgrade_sign));
 		memcpy(upgrade_param.bms_upgrade_path,ctrlFotaData.upgradepath().c_str(),ctrlFotaData.upgradepath().length());
 		memcpy(upgrade_param.bms_upgrade_sign,ctrlFotaData.sign().c_str(),ctrlFotaData.sign().length());
 	}
@@ -448,6 +653,7 @@ static void deal_upgrade(int sock,unsigned char *buf)
 				//mcu_upgrade = true;
 			}
 			break;
+
 		case 6:
 			if(mcu_upgrade == false)
 			{
@@ -459,11 +665,12 @@ static void deal_upgrade(int sock,unsigned char *buf)
 		case 7:
 			if(mcu_upgrade == false)
 			{
-				system("mv /home/root/tbox_decrypt /home/root/canmcu.bin");
+				system("mv /home/root/tbox_decrypt /home/root/mcu_mcu.bin");
 				system("sync");
 				//mcu_upgrade = true;
 			}
 			break;
+
 		case 8:
 			if(mcu_upgrade == false)
 			{
@@ -1565,8 +1772,6 @@ static void deal_control(int sock,unsigned char *buf)
 			Log(__FUNCTION__,"ack control thread failed!\n");
 		}
 	}
-
-	return void(0);
 }
 
 static void deal_cmd(unsigned char *buf,int clt_sock)
@@ -1613,8 +1818,6 @@ static void deal_cmd(unsigned char *buf,int clt_sock)
 			deal_control(clt_sock,buf);
 		}
 	}
-
-	return void(0);
 }
 
 
@@ -1733,7 +1936,7 @@ bool connect_to_server(int* clt_sock,char* url)
     struct sockaddr_in addr;   
     addr.sin_family = AF_INET;   
     addr.sin_port = htons(param.port);   
-	
+	printf("translate address!!!\n");
 	if(inet_addr(url) == INADDR_NONE)
 	{
 		struct hostent *nlp_host;
@@ -1752,7 +1955,9 @@ bool connect_to_server(int* clt_sock,char* url)
 	}
 
     socklen_t addr_len = sizeof(addr);  
-	
+	printf("config_route!!!\n");
+	printf("dev_name:%s!!!\n",dev_name);
+	(void)config_route(*clt_sock, 100, dev_name);
 	Log(__FUNCTION__,"connectting\n");  
     int connect_fd = connect(*clt_sock, (struct sockaddr*)&addr, addr_len);  
     if(connect_fd < 0)  
@@ -1987,7 +2192,6 @@ void SocketRecv_Proc(int socketFd)
 void* TCP_Program(void* tcp_param)
 {    
 	sleep(1);
-
 	if(tcp_param == NULL)
 	{
 		return 0;
@@ -2006,6 +2210,7 @@ void* TCP_Program(void* tcp_param)
 				step = connect_step;
 				if(connect_timeout++ < 60)
 				{
+					printf("connect_timeout:%d\n",connect_timeout);
 					Log(__FUNCTION__,"network not ready");
 					sleep(1);			
 				}
@@ -2079,7 +2284,7 @@ void* TCP_Program(void* tcp_param)
 					connect_timeout = 0;
 				}
 				break;
-			}
+			}
 		}
 		connect_ok = true;
 		check_time(sock_cli);
@@ -2121,7 +2326,6 @@ void* TCP_Program(void* tcp_param)
 		setsockopt(sock_cli,SOL_SOCKET,SO_RCVTIMEO,(const char*)&heart_timeout,sizeof(heart_timeout));
 		setsockopt(sock_cli,SOL_SOCKET,SO_SNDTIMEO,(const char*)&heart_timeout,sizeof(heart_timeout));
 	    SocketRecv_Proc(sock_cli);
-		
 		Log(__FUNCTION__,"network error outpu recv proc\n");
 		connect_ok = false;
 		//logout(sock_cli,param.login_serial_num);
@@ -2302,7 +2506,7 @@ static void ql_sms_cb_func( QL_SMS_MsgRef   msgRef,
 	}
 }
 
-#define BUF_SIZE 128
+
 void ql_qcmapclient_nw_status_cb(ql_wwan_nw_staus_e_type status)
 {
 	char ICCID[BUF_SIZE] = {0};
@@ -2311,27 +2515,31 @@ void ql_qcmapclient_nw_status_cb(ql_wwan_nw_staus_e_type status)
     switch (status) 
 	{
     case QL_WWAN_NW_CONNECTING:
+		printf("connecting !!!!!!!!!!!\n");
 		if(param.GB32690_type <= 0)
 		{
+			printf("param.GB32690_type <= 0 !!!!!!!!!!!\n");
 			QL_SIM_GetICCID(E_QL_SIM_EXTERNAL_SLOT_1,ICCID, BUF_SIZE);     
-			Log(__FUNCTION__,"ICCID: %s\n",ICCID);
+			Log(__FUNCTION__,"ICCID: %s\n",ICCID);	
 			if(strcmp(ICCID,param.ICCID))
 			{
-				memcpy(param.ICCID,ICCID,sizeof(param.ICCID));
+				memcpy(param.ICCID,ICCID,sizeof(param.ICCID)-1);
 				init_save_param(PARAM_PATH);
 				init_save_param(BAK_PARAM_PATH);
 			}
+			/****************
 			if(!strcmp("00000000000000000",param.VIN)){
 				memcpy(param.VIN,&ICCID[3],17);			
 				Log(__FUNCTION__,"VIN: %s\n",param.VIN);
 				init_save_param(PARAM_PATH);
 				init_save_param(BAK_PARAM_PATH);
 			}
+			***************/			
 			QL_SIM_GetIMSI(E_QL_SIM_EXTERNAL_SLOT_1,IMSI, BUF_SIZE);
 			Log(__FUNCTION__,"IMSI: %s\n",IMSI);
 			if(strcmp(IMSI,param.IMSI))
 			{
-				memcpy(param.IMSI,IMSI,sizeof(param.IMSI));
+				memcpy(param.IMSI,IMSI,sizeof(param.IMSI)-1);
 				init_save_param(PARAM_PATH);
 				init_save_param(BAK_PARAM_PATH);
 			}
@@ -2339,7 +2547,7 @@ void ql_qcmapclient_nw_status_cb(ql_wwan_nw_staus_e_type status)
 			Log(__FUNCTION__,"IMEI: %s\n",IMEI);
 			if(strcmp(IMEI,param.IMEI))
 			{
-				memcpy(param.IMEI,IMEI,sizeof(param.IMEI));
+				memcpy(param.IMEI,IMEI,sizeof(param.IMEI)-1);
 				init_save_param(PARAM_PATH);
 				init_save_param(BAK_PARAM_PATH);
 			}
@@ -2370,10 +2578,156 @@ void ql_qcmapclient_nw_status_cb(ql_wwan_nw_staus_e_type status)
     return;
 }
 
+static void data_call_state_callback(ql_data_call_state_s *state)
+{
+	char command[128];
+	printf("the profile is:%d\n",state->profile_idx);
+	printf("profile id %d ", g_call.profile_idx);
+	printf("IP family %s ", QL_DATA_CALL_TYPE_IPV4 == state->ip_family ? "v4" : "v6");
+	if(QL_DATA_CALL_CONNECTED == state->state) {
+		if(QL_DATA_CALL_TYPE_IPV4 == state->ip_family) {
+			printf("data_call_state_callback:connected\n");
+			printf("IP address:          %s\n", inet_ntoa(state->v4.ip));
+			printf("Gateway address:     %s\n", inet_ntoa(state->v4.gateway));
+			printf("Primary DNS address: %s\n", inet_ntoa(state->v4.pri_dns));
+			printf("Second DNS address:  %s\n", inet_ntoa(state->v4.sec_dns));
+			char ICCID[BUF_SIZE] = {0};
+			char IMSI[BUF_SIZE] = {0};
+			char IMEI[BUF_SIZE] = {0};
+			connected = TRUE;
+			if(param.GB32690_type <= 0)
+			{
+				printf("param.GB32690_type <= 0 !!!!!!!!!!!\n");
+				QL_SIM_GetICCID(E_QL_SIM_EXTERNAL_SLOT_1,ICCID, BUF_SIZE);     
+				Log(__FUNCTION__,"ICCID: %s\n",ICCID);	
+				if(strcmp(ICCID,param.ICCID))
+				{
+					memcpy(param.ICCID,ICCID,sizeof(param.ICCID)-1);
+					init_save_param(PARAM_PATH);
+					init_save_param(BAK_PARAM_PATH);
+				}			
+				QL_SIM_GetIMSI(E_QL_SIM_EXTERNAL_SLOT_1,IMSI, BUF_SIZE);
+				Log(__FUNCTION__,"IMSI: %s\n",IMSI);
+				if(strcmp(IMSI,param.IMSI))
+				{
+					memcpy(param.IMSI,IMSI,sizeof(param.IMSI)-1);
+					init_save_param(PARAM_PATH);
+					init_save_param(BAK_PARAM_PATH);
+				}
+				QL_DEV_GetImei(IMEI, BUF_SIZE);
+				Log(__FUNCTION__,"IMEI: %s\n",IMEI);
+				if(strcmp(IMEI,param.IMEI))
+				{
+					memcpy(param.IMEI,IMEI,sizeof(param.IMEI)-1);
+					init_save_param(PARAM_PATH);
+					init_save_param(BAK_PARAM_PATH);
+				}
+			}
+				/*
+				if(1 != g_call.profile_idx) {
+					snprintf(command, sizeof(command), "route add default gw %s",
+						inet_ntoa(state->v4.gateway));
+					system(command);
+					snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
+						inet_ntoa(state->v4.pri_dns));
+					system(command);
+					snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
+						inet_ntoa(state->v4.sec_dns));
+					system(command);
+				}
+				*/
+		} else {
+			char ipv6_buffer[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, (void *)&state->v6.ip, ipv6_buffer, INET6_ADDRSTRLEN);
+			printf("IP address:          %s\n", ipv6_buffer);
+			inet_ntop(AF_INET6, (void *)&state->v6.gateway, ipv6_buffer, INET6_ADDRSTRLEN);
+			printf("Gateway address:     %s\n", ipv6_buffer);
+			inet_ntop(AF_INET6, (void *)&state->v6.pri_dns, ipv6_buffer, INET6_ADDRSTRLEN);
+			printf("Primary DNS address: %s\n", ipv6_buffer);
+			inet_ntop(AF_INET6, (void *)&state->v6.sec_dns, ipv6_buffer, INET6_ADDRSTRLEN);
+			printf("Second DNS address:  %s\n", ipv6_buffer);
+			if(1 != g_call.profile_idx) {
+				inet_ntop(AF_INET6, (void *)&state->v6.gateway, ipv6_buffer, INET6_ADDRSTRLEN);
+				snprintf(command, sizeof(command), "ip -6 route del default via %s dev %s",
+					ipv6_buffer, state->name);
+				system(command);	
+				inet_ntop(AF_INET6, (void *)&state->v6.pri_dns, ipv6_buffer, INET6_ADDRSTRLEN);
+				snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
+					ipv6_buffer);
+				system(command);		
+				inet_ntop(AF_INET6, (void *)&state->v6.sec_dns, ipv6_buffer, INET6_ADDRSTRLEN);
+				snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
+					ipv6_buffer);
+				system(command);
+		}
+	}
+	printf("\n");
+} 
+		
+	//g_dail_cb_recv = true;
+	
+}
+/*
+void ql_qcmapclient_init(ql_data_call_state_e status)
+{
+	char ICCID[BUF_SIZE] = {0};
+	char IMSI[BUF_SIZE] = {0};
+	char IMEI[BUF_SIZE] = {0};
+    switch (status) 
+	{
+    case QL_DATA_CALL_CONNECTED:
+		printf("connecting !!!!!!!!!!!\n");
+		if(param.GB32690_type <= 0)
+		{
+			printf("param.GB32690_type <= 0 !!!!!!!!!!!\n");
+			QL_SIM_GetICCID(E_QL_SIM_EXTERNAL_SLOT_1,ICCID, BUF_SIZE);     
+			Log(__FUNCTION__,"ICCID: %s\n",ICCID);	
+			if(strcmp(ICCID,param.ICCID))
+			{
+				memcpy(param.ICCID,ICCID,sizeof(param.ICCID)-1);
+				init_save_param(PARAM_PATH);
+				init_save_param(BAK_PARAM_PATH);
+			}
+						
+			QL_SIM_GetIMSI(E_QL_SIM_EXTERNAL_SLOT_1,IMSI, BUF_SIZE);
+			Log(__FUNCTION__,"IMSI: %s\n",IMSI);
+			if(strcmp(IMSI,param.IMSI))
+			{
+				memcpy(param.IMSI,IMSI,sizeof(param.IMSI)-1);
+				init_save_param(PARAM_PATH);
+				init_save_param(BAK_PARAM_PATH);
+			}
+			QL_DEV_GetImei(IMEI, BUF_SIZE);
+			Log(__FUNCTION__,"IMEI: %s\n",IMEI);
+			if(strcmp(IMEI,param.IMEI))
+			{
+				memcpy(param.IMEI,IMEI,sizeof(param.IMEI)-1);
+				init_save_param(PARAM_PATH);
+				init_save_param(BAK_PARAM_PATH);
+			}
+		}
+		else
+		{
+			Log(__FUNCTION__,"ICCID: %s\n",param.ICCID);
+		}
+		connected = TRUE;
+        Log(__FUNCTION__,"data call connected wwan...\n\r");
+        break;
+    case QL_DATA_CALL_DISCONNECTED:
+        Log(__FUNCTION__,"data call disconnect wwan\n\r");
+        connected = FALSE;
+        break;
+    default:
+        Log(__FUNCTION__,"data call connect  unkonwn evt\n\r");
+        break;
+
+	}
+}
+*/
 void* module_init_thread(void* module_param)
 {
 	int ret;
-	static sms_client_handle_type	  h_sms;
+	static sms_client_handle_type h_sms;
 	ret = QL_SMS_Client_Init(&h_sms);
 	Log(__FUNCTION__,"QL_SMS_Client_Init ret=%d with h_sms=0x%x\n", ret, h_sms);
 	ret = QL_SMS_AddRxMsgHandler(ql_sms_cb_func, (void*)h_sms);
@@ -2381,17 +2735,56 @@ void* module_init_thread(void* module_param)
 	ql_wifi_enable();
 	while(1)
 	{
-	    Ql_NW_MobileAP_Init();
-	    Ql_NW_MoblieAP_AutoConnect_Set(TRUE);
-
-	    Ql_NW_MobileAP_Enable(10, ql_qcmapclient_nw_status_cb);
-		module_init_thread_restart = false;
-	    while (!module_init_thread_restart) 
+		int retval = 0;
+		int idx = 0;
+		for (idx = 0; idx < MAX_COUNT; ++idx)
 		{
-	        sleep(1);
-	    }
-	    Ql_NW_MobileAP_Disable();
+			record[idx].apnId = 1+idx;
+			record[idx].timeout = 100;
+			record[idx].sockfd = -1;
+			record[idx].port = param.port;
+			strncpy(record[idx].ip, param.url, sizeof(record[idx].ip));
+			if (idx == 0)
+			{
+				(void)strncpy(record[idx].apn,  "CMIOTYMCLW.JS" , sizeof(record[idx].apn));
+				retval = configureNetwork(record[idx].apnId, record[idx].apn);
+				strncpy(dev_name, linkNetwork(record[idx].apnId),sizeof(dev_name));
+				//configDNSAddr(record[idx].apnId);
+				/*
+				printf("devname:%s\n!!!!!!\n",dev_name);
+				system("route add default dev rmnet_data0");
+				system("iptables -F");
+				system("echo 1 > /proc/sys/net/ipv4/ip_forward");
+				system("iptables -t nat -A POSTROUTING -o rmnet_data0 -j MASQUERADE --random");
+				*/
+			}
+			else if (idx == 1)
+			{
+				(void)strncpy(record[idx].apn, "CMIOT" , sizeof(record[idx].apn));
+				retval = configureNetwork(record[idx].apnId, record[idx].apn);
+			    linkNetwork(record[idx].apnId);
+				//configDNSAddr(record[idx].apnId);
+				system("route add default dev rmnet_data1");
+				system("iptables -F");
+				system("echo 1 > /proc/sys/net/ipv4/ip_forward");
+				system("iptables -t nat -A POSTROUTING -o rmnet_data1 -j MASQUERADE --random");
+			}
+			
+		 }
+		//getNetworkCfgList();
+		if(retval==-1)
+		{
+			continue;
+		}
+		module_init_thread_restart = false;
+		while (!module_init_thread_restart) 
+		{
+		    sleep(1);
+		}
+		for (idx = 0; idx < MAX_COUNT; ++idx)
+		{
+			unlinkNetwork(record[idx].apnId);
+		}
 	}
-	
 }
 

@@ -10,7 +10,7 @@ param_t param = {
 	.ICCID = "00000000000000000000",
 	.IMEI = "000000000000000",
 	.IMSI = "000000000000000",
-	.url = "mx-vehicle-monitor-ta.mxnavi.com",
+	.url = "mx-vehicle-monitor-ta.mxnavi.com",//"gaei.tcptest.timasync.com",//
 	.platform_url = "mx-vehicle-monitor-ta.mxnavi.com",
 	.heart_period = 15,
 	.data_period = 10,
@@ -19,7 +19,7 @@ param_t param = {
 	.btry_num = 88,
 	.alert_period = 1,
 	.tbox_timeout = 10,
-	.port = 8474,
+	.port =8474,//9093, //
 	.platform_port = 8474,
 	.save_period = 1,
 	.tcp_rcv_timeout = 30,
@@ -34,23 +34,26 @@ param_t param = {
 	.alert_time = 60,
 	.mcu_debug = 0,
 	.decrypt = 1,
+	.usbnet=1,
 };
 
 upgrade_param_t upgrade_param = {
 	.pc_upgrade_status = 0,
 	.mcu_upgrade_status = 0,
 	.vcu_upgrade_status = 0,
-	.can_mcu_upgrade_status = 0, //can 节点
+	.mcu_mcu_upgrade_status = 0,
 	.bms_upgrade_status = 0,
+	
 	.pc_upgrade_path = "",
 	.mcu_upgrade_path = "",
 	.vcu_upgrade_path = "",
-	.can_mcu_upgrade_path = "",
+	.mcu_mcu_upgrade_path = "",
 	.bms_upgrade_path = "",
+	
 	.pc_upgrade_sign = "",
 	.mcu_upgrade_sign = "",
 	.vcu_upgrade_sign = "",
-	.can_mcu_upgrade_sign = "",	
+	.mcu_mcu_upgrade_sign = "",
 	.bms_upgrade_sign = "",
 };
 
@@ -58,7 +61,7 @@ upgrade_param_t upgrade_param = {
 #define TYPE_CHAR_P  1
 #define TYPE_INT	 2
 
-#define PARAM_NUM	28
+#define PARAM_NUM	29
 
 
 set_param_t set_param[PARAM_NUM] = {
@@ -89,25 +92,17 @@ set_param_t set_param[PARAM_NUM] = {
 	{"before_alert_time",TYPE_INT,(void*)(&param.before_alert_time)},
 	{"alert_time",TYPE_INT,(void*)(&param.alert_time)},
 	{"mcu_debug",TYPE_INT,(void*)(&param.mcu_debug)},
-	{"decrypt",TYPE_INT,(void*)(&param.decrypt)}
+	{"decrypt",TYPE_INT,(void*)(&param.decrypt)},
+	{"usbnet",TYPE_INT,(void*)(&param.usbnet)}
 };
 
-set_param_t set_upgrade_param[15] = {
+set_param_t set_upgrade_param[6] = {
 	{"pc_upgrade_status",TYPE_INT,(void*)(&upgrade_param.pc_upgrade_status)},
 	{"mcu_upgrade_status",TYPE_INT,(void*)(&upgrade_param.mcu_upgrade_status)},
-	{"vcu_upgrade_status",TYPE_INT,(void*)(&upgrade_param.vcu_upgrade_status)},
-	{"can_mcu_upgrade_status",TYPE_INT,(void*)(&upgrade_param.can_mcu_upgrade_status)},
-	{"bms_upgrade_status",TYPE_INT,(void*)(&upgrade_param.bms_upgrade_status)},
 	{"pc_upgrade_path",TYPE_CHAR_P,(void*)(&upgrade_param.pc_upgrade_path)},
 	{"mcu_upgrade_path",TYPE_CHAR_P,(void*)(&upgrade_param.mcu_upgrade_path)},
-	{"vcu_upgrade_path",TYPE_CHAR_P,(void*)(&upgrade_param.vcu_upgrade_path)},
-	{"can_mcu_upgrade_path",TYPE_CHAR_P,(void*)(&upgrade_param.can_mcu_upgrade_path)},
-	{"bms_upgrade_path",TYPE_CHAR_P,(void*)(&upgrade_param.bms_upgrade_path)},
 	{"pc_upgrade_sign",TYPE_CHAR_P,(void*)(&upgrade_param.pc_upgrade_sign)},
 	{"mcu_upgrade_sign",TYPE_CHAR_P,(void*)(&upgrade_param.mcu_upgrade_sign)},	
-	{"vcu_upgrade_sign",TYPE_CHAR_P,(void*)(&upgrade_param.vcu_upgrade_sign)},
-	{"can_mcu_upgrade_sign",TYPE_CHAR_P,(void*)(&upgrade_param.can_mcu_upgrade_sign)},	
-	{"bms_mcu_upgrade_sign",TYPE_CHAR_P,(void*)(&upgrade_param.bms_upgrade_sign)},	
 };
 
 
@@ -119,6 +114,7 @@ unsigned char app_version[32];
 unsigned char mcu_version[32];
 
 unsigned char hardware_version[32];
+
 
 air_condition_param_t *get_air_conditon(int positon){
 	return &air_condition_param[positon];
@@ -276,7 +272,7 @@ void Log_print(const char *fmt, ...)
 	
 	 char file_name[32] = {0};
 	 sprintf(file_name,LOG_PATH,timenow->tm_year + 1900,timenow->tm_mon + 1,timenow->tm_mday);
-
+	
 	 pthread_mutex_lock(&log_mutex);
 
 	 va_list ap; 
@@ -349,6 +345,62 @@ unsigned char check_sum(unsigned char * buf,int len)
 		sum^= buf[i];
 	}
 	return sum;
+}
+
+bool getFirewareVersion(char *firewareVersion){
+	int nowIndex=0,verStartIndex=0,verEndIndex=0;
+	int infoLen = 0;
+
+	char firewareInfo[1024] = {0};
+	FILE *fd = fopen(FIERWARE_PATH,"a+");
+	if(fd == NULL)
+	{
+		return false;
+	}
+	
+	fseek(fd,0,SEEK_END);
+	infoLen = ftell(fd);  	
+	fseek(fd,0,SEEK_SET);
+	fread(firewareInfo,sizeof(firewareInfo),1,fd);		
+	fclose(fd);
+	
+	for(;nowIndex<infoLen;++nowIndex){
+		if(firewareInfo[nowIndex] == 'P'){
+			if(!strncmp(&firewareInfo[nowIndex],"Project Rev",11)){
+				nowIndex += 11;
+				break;
+			}
+		}
+	}
+
+	if(nowIndex<infoLen){
+		for(;nowIndex<infoLen;++nowIndex){			
+			if(firewareInfo[nowIndex] == ':'){
+				verStartIndex = nowIndex + 1;
+				break;
+			}
+		}
+	}else{
+		return false;
+	}
+
+	if(nowIndex<infoLen){
+		for(;nowIndex<infoLen;++nowIndex){			
+			if(firewareInfo[nowIndex] == '\n'){
+				verEndIndex = nowIndex - 1;
+				break;
+			}
+		}
+	}else{
+		return false;
+	}
+
+	int verLen = verEndIndex - verStartIndex;
+	if(verLen>30){
+		verLen = 30;
+	}
+	memcpy(firewareVersion,firewareInfo+verStartIndex,verLen);
+	return true;
 }
 
 bool get_json_upgrade(char *jsonStr)
@@ -431,7 +483,6 @@ void get_upgrade()
 	{
 		init_save_upgrade();
 	}
-
 	FILE *fd = fopen(UPGRADE_PATH,"rb");
 	char jsonStr[2048] = {0};				
 	fseek(fd,0,SEEK_SET);
@@ -454,7 +505,8 @@ bool get_json_param(char *jsonStr)
 	}
 	else
 	{
-		cJSON *temp = NULL;
+		cJSON *temp = NULL;	
+		size_t len = 0;
 		for(i = 0;i < PARAM_NUM;i++)
 		{
 			temp = cJSON_GetObjectItem(jsonNode,set_param[i].keyword);
@@ -467,9 +519,10 @@ bool get_json_param(char *jsonStr)
 					Log(__FUNCTION__,"%d\n",temp->valueint);
 					break;
 				case TYPE_CHAR_P:
-					memset(set_param[i].value,0,(size_t)sizeof(set_param[i].value));
+					len = sizeof(set_param[i].value);
+					memset(set_param[i].value,0,len);
 					memcpy(set_param[i].value,temp->valuestring,strlen(temp->valuestring));	
-					Log(__FUNCTION__,"%s\n",temp->valuestring);
+					Log(__FUNCTION__,"%s\n",temp->valuestring);						
 					break;
 				}
 			}			 

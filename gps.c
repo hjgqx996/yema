@@ -21,6 +21,8 @@ extern pthread_t gps_thread_t;
 
 extern pthread_mutex_t AT_mutex;
 bool gps_thread_cancel = false;
+
+
 static int _recv_nema_data(void);
 static void Callback_onSignal(int sig);
 
@@ -458,7 +460,7 @@ static int _recv_nema_data(void)
 					do {
 						memset(gps_data_buffer, 0x0, sizeof(gps_data_buffer));
 						rdLen = read(nmea_fd, gps_data_buffer, lenToRead);
-						Log(__FUNCTION__,"%s",gps_data_buffer);
+						//Log(__FUNCTION__,"%s",gps_data_buffer);
 						buff_gprmc=get_target("$GPRMC",gps_data_buffer);
 				        buff_gpgga=get_target("$GPGGA",gps_data_buffer);
 						buff_gpvtg=get_target("$GPVTG",gps_data_buffer);
@@ -550,6 +552,7 @@ int Ql_SendAT(char* atCmd, char* finalRsp, long timeout_ms)
 					    {
 					        //Log(__FUNCTION__,"\n< match >\n");
 					        bRcvFinalRsp = TRUE;
+							printf("strResponse is:%s\n",strResponse);
 					    }else{
 					        Log(__FUNCTION__,"\n< not final rsp >\n");
 					    }

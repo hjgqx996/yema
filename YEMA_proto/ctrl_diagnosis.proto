@@ -1,28 +1,33 @@
 syntax = "proto2";
-enum DiagnosisType{
-    ALL = 0xFF;
-    AFS = 0x01;
-    SAS = 0x02;
-    APA = 0x03;
-    SRS = 0x04;
-    BCM = 0x05;
-    IC = 0x06;
-    PEPS = 0x07;
-    AC = 0x08; 
-    TPMS = 0x09;
-    DVD = 0x0A;
-    PRM = 0x0B;
-    SCM = 0x0C;
-    TBOX = 0x0D;
-    NVS = 0x0E;
-    HUD = 0x0F;
-    AVM = 0x10;
-    LDW = 0x11;
-    BSD = 0x12;
-    DR = 0x13; 
-    GW = 0x14;
-    AC_COMPRESSOR = 0x15;
-    MP5CP = 0x16;
+option java_package = "com.mx.server.remote.v2.bean";
+option java_outer_classname = "CtrlDiagnosisBean";
+
+// protoc.exe --java_out=./ ctrl_diagnosis.proto
+
+enum DiagnosisType {
+    DIAG_TYPE_ALL = 255;
+    DIAG_TYPE_AFS = 1;
+    DIAG_TYPE_SAS = 2;
+    DIAG_TYPE_APA = 3;
+    DIAG_TYPE_SRS = 4;
+    DIAG_TYPE_BCM = 5;
+    DIAG_TYPE_IC = 6;
+    DIAG_TYPE_PEPS = 7;
+    DIAG_TYPE_AC = 8;
+    DIAG_TYPE_TPMS = 9;
+    DIAG_TYPE_DVD = 10;
+    DIAG_TYPE_PRM = 11;
+    DIAG_TYPE_SCM = 12;
+    DIAG_TYPE_TBOX = 13;
+    DIAG_TYPE_NVS = 14;
+    DIAG_TYPE_HUD = 15;
+    DIAG_TYPE_AVM = 16;
+    DIAG_TYPE_LDW = 17;
+    DIAG_TYPE_BSD = 18;
+    DIAG_TYPE_DR = 19;
+    DIAG_TYPE_GW = 20;
+    DIAG_TYPE_AC_COMPRESSOR = 21;
+    DIAG_TYPE_MP5CP = 22;
 }
 
 /**

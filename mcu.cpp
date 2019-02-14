@@ -79,7 +79,8 @@ unsigned char door_state[4] = {0};
 unsigned char tire_preture[8] = {0};
 unsigned char oil_mass[2]={0};
 
-static int upgrage_equipment = 4;
+unsigned char EOL[32] = "eol";
+unsigned char pipe_Skey[32] = "pipe_Skey";
 
 gl_data_t gl_data;
 
@@ -777,39 +778,12 @@ void upgrade(void)
 	Log(__FUNCTION__,"package_sum = %d\n",package_sum);
 	int package_size = 0;
 	int req_package_num = 0;
-	FILE *fd ;
-
-	if(upgrage_equipment == 4){
-		fd = fopen("/home/root/mcu.bin","rb");
-		if(fd == NULL)
-		{
-			Log(__FUNCTION__,"open failed\n");
-	    }
-	}
-
-	if(upgrage_equipment == 6){
-		fd = fopen("/home/root/vcu.bin","rb");
-		if(fd == NULL)
-		{
-			Log(__FUNCTION__,"open failed\n");
-	    }
-	}
-
-	if(upgrage_equipment == 7){
-		fd = fopen("/home/root/canmcu.bin","rb");
-		if(fd == NULL)
-		{
-			Log(__FUNCTION__,"open failed\n");
-	    }
-	}
-
-	if(upgrage_equipment == 8){
-		fd = fopen("/home/root/bms.bin","rb");
-		if(fd == NULL)
-		{
-			Log(__FUNCTION__,"open failed\n");
-	    }
-	}
+	FILE *fd = fopen("/home/root/mcu.bin","rb");
+	if(fd == NULL)
+	{
+		Log(__FUNCTION__,"open failed\n");
+	
+    }
 
 	int step = 0;
 	//request
@@ -926,11 +900,53 @@ void upgrade(void)
 
 int alert_start_count = 0;
 int alert_stop_count = 0;
+unsigned int oldAlertData = 0;
+unsigned int nowAlertData = 0;
+int alertClear = 0;
+int tmpAlterNum = 0;
+void decideAlert(unsigned char *buf){
+	if(alert_start){
+		alert_start_count++;
+		//printf("######################################## %d %d\n",alert_start_count,param.before_alert_time);
+		if(alert_start_count > param.alert_time){
+			//Log(__FUNCTION__,"-------------alert finish-----------------------\n");
+			alert_start_count = 0;
+			alert_start = false;
+		}
+	}else{
+		if(alertClear++ > 3600){
+			//printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ alertClear = %d\n",alertClear);
+			alertClear = 0;
+			oldAlertData = 0;
+		}
+
+		nowAlertData = (unsigned int)buf[7];	
+		nowAlertData <<= 8;
+		nowAlertData += (unsigned int)buf[8];
+		nowAlertData <<= 8;
+		nowAlertData += (unsigned int)buf[9];
+		nowAlertData <<= 8;
+		nowAlertData += (unsigned int)buf[11];
+		//printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ alert = %d %d\n",nowAlertData,oldAlertData);
+		//if(buf[6] == 0x3 && nowAlertData != oldAlertData){
+		if(tmpAlterNum++ > 150){
+			//Log(__FUNCTION__,"-----------------------alert start! ------------------------\n");
+			sql_fault_mark();
+			tmpAlterNum = 0;
+			period = 0;
+			alert_start = true;
+			oldAlertData = nowAlertData;
+		}
+	}
+}
+
+
 void Deal_CAN(unsigned char* mcu_buf)
 {
 	//FF BB 58  01 1A  00  07...
 	if(mcu_buf[2] == CMD_TBOX_CAR_INFO)
 	{
+		/*
 		if(param.GB32690_type != e_off)
 		{
 		
@@ -972,23 +988,19 @@ void Deal_CAN(unsigned char* mcu_buf)
 			}
 		}
 		else
-		{
-			if((mcu_buf[8] == 0x03)&&(mcu_buf[7] == 0x07))
+		{*/
+			//if((mcu_buf[8] == 0x03)&&(mcu_buf[7] == 0x07))
+			decideAlert(mcu_buf);
+			if(alert_start)
 			{
 				param.data_period = 1;
-				if(!alert_start)
-				{
-					sql_fault_mark();
-					period = 0;
-					alert_start = true;
-				}
 			}
 			else
 			{
-				alert_start = false;
+				//alert_start = false;
 				param.data_period = 10;
 			}
-		}
+		//}
 		date_time date;
 		unsigned char data[1024] = {0};
 		int offset = 0;
@@ -1015,20 +1027,16 @@ void Deal_CAN(unsigned char* mcu_buf)
 		offset += mcu_len;
 		
 		//extend data
-		unsigned int sspend;
-		sspend += (unsigned char)data[56];
-		sspend <<= 8;
-		sspend += (unsigned char)data[57];
-		car_data.location.speed = sspend/10.0;
 		extendQueue->pushNewData(&car_data.location);
-		unsigned int aMileage = 0;
-		aMileage += (unsigned char)data[56];
+		unsigned int aMileage;
+		aMileage = (unsigned char)data[56];
 		aMileage<<=8;
 		aMileage += (unsigned char)data[57];
 		aMileage<<=8;
 		aMileage += (unsigned char)data[58];
 		aMileage<<=8;
 		aMileage += (unsigned char)data[59];
+		
 		
 		get_extend_vechicle_param()->accumulatedMileage = aMileage;
 		get_extend_vechicle_param()->soc = data[64];
@@ -1276,7 +1284,7 @@ void Deal_Basic_Infomation_Status(unsigned char *buf)
 				offset++;
 			}
 
-			if(strcmp(temp,param.VIN) && strcmp("00000000000000000",temp)){
+			//if(strcmp(temp,param.VIN) && strcmp("00000000000000000",temp)){
 				memcpy(param.VIN,temp,17);
 				Log(__FUNCTION__,"VIN:%s",param.VIN);
 				init_save_param(PARAM_PATH);
@@ -1287,7 +1295,7 @@ void Deal_Basic_Infomation_Status(unsigned char *buf)
 					param.login_serial_num++;					
 					login(sock_cli,param.login_serial_num);
 				}
-			}
+			//}
 		}
 
 		// 下位机软件版本
@@ -1312,7 +1320,27 @@ void Deal_Basic_Infomation_Status(unsigned char *buf)
 				offset++;
 			}
 		}
-	
+
+		if(buf[offset] == 0xc){
+			offset++;
+			startMark = offset;	
+			memset(EOL,0,sizeof(EOL));
+			while(buf[offset] != '\0'){
+				EOL[offset-startMark] = buf[offset];
+				offset++;
+			}
+		}
+
+		if(buf[offset] == 0xd){
+			offset++;
+			startMark = offset;	
+			memset(pipe_Skey,0,sizeof(pipe_Skey));
+			while(buf[offset] != '\0'){
+				pipe_Skey[offset-startMark] = buf[offset];
+				offset++;
+			}
+		}
+		
 		idNum --;
 	}
 }
@@ -1324,7 +1352,6 @@ void Deal_Vehicle_Param(unsigned char *mcu_buf){
 	unsigned int tempStatus;
 	while(checkNum != 0){	
 		
-		printf("offset = %d\n",offset);
 		status_type = mcu_buf[offset++];
 		switch(status_type){
 			case 0x1:
@@ -1540,7 +1567,6 @@ void Deal_Key_parameter(unsigned char* mcu_buf){
 	int status_type;//offset = 6,
 	int offset = 6;
 	while(checkNum != 0){		
-		printf("offset = %d\n",offset);
 		status_type = mcu_buf[offset++];
 		switch(status_type){
 			case 0x1:
@@ -1910,72 +1936,6 @@ void Deal_mcu_cmd(unsigned char* buf,int len)
 		get_upgrade();
 
 		if(upgrade_param.mcu_upgrade_status){
-			int ret = down_load_verify((char*)upgrade_param.mcu_upgrade_sign,(char*)upgrade_param.mcu_upgrade_path);
-			if(ret){			
-				if(mcu_upgrade == false)
-				{
-					if(mcu_upgrade == false)
-					{
-						system("mv /home/root/tbox_decrypt /home/root/mcu.bin");
-						system("sync");
-						mcu_upgrade = true;
-					}
-				}
-			}		
-		}	
-
-		
-		if(upgrade_param.vcu_upgrade_status){
-			int ret = down_load_verify((char*)upgrade_param.vcu_upgrade_sign,(char*)upgrade_param.vcu_upgrade_path);
-			if(ret){			
-				if(mcu_upgrade == false)
-				{
-					if(mcu_upgrade == false)
-					{
-						system("mv /home/root/tbox_decrypt /home/root/vcu.bin");
-						system("sync");
-						mcu_upgrade = true;
-					}
-				}
-			}		
-		}	
-
-		if(upgrade_param.can_mcu_upgrade_status){
-			int ret = down_load_verify((char*)upgrade_param.can_mcu_upgrade_sign,(char*)upgrade_param.can_mcu_upgrade_path);
-			if(ret){			
-				if(mcu_upgrade == false)
-				{
-					if(mcu_upgrade == false)
-					{
-						system("mv /home/root/tbox_decrypt /home/root/canmcu.bin");
-						system("sync");
-						mcu_upgrade = true;
-					}
-				}
-			}		
-		}	
-
-		
-		if(upgrade_param.bms_upgrade_status){
-			int ret = down_load_verify((char*)upgrade_param.bms_upgrade_sign,(char*)upgrade_param.bms_upgrade_path);
-			if(ret){			
-				if(mcu_upgrade == false)
-				{
-					if(mcu_upgrade == false)
-					{
-						system("mv /home/root/tbox_decrypt /home/root/bms.bin");
-						system("sync");
-						mcu_upgrade = true;
-					}
-				}
-			}		
-		}	
-
-		
-		else if(buf[6] == 0x05 && buf[7] == 0x02)
-		{
-			get_upgrade();
-			if(upgrade_param.mcu_upgrade_status){
 					int ret = down_load_verify((char*)upgrade_param.mcu_upgrade_sign,(char*)upgrade_param.mcu_upgrade_path);
 					if(ret){			
 						if(mcu_upgrade == false)
@@ -1988,6 +1948,26 @@ void Deal_mcu_cmd(unsigned char* buf,int len)
 							}
 						}
 					}		
+		}	
+
+		
+		else if(buf[6] == 0x05 && buf[7] == 0x02)
+		{
+			get_upgrade();
+			if(upgrade_param.mcu_upgrade_status){/*
+					int ret = down_load_verify((char*)upgrade_param.mcu_upgrade_sign,(char*)upgrade_param.mcu_upgrade_path);
+					if(ret){			
+						if(mcu_upgrade == false)
+						{
+							if(mcu_upgrade == false)
+							{
+								system("mv /home/root/tbox_decrypt /home/root/mcu.bin");
+								system("sync");
+								mcu_upgrade = true;
+							}
+						}
+					}	*/
+					mcu_upgrade = true;
 			}else{
 				if(real_wakeup)
 				{

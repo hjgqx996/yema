@@ -11,8 +11,7 @@ extern "C"
 #include "http.h"
 #include "gps.h"
 #include "HU.h"
-
-
+//#include "VPN.h"
 }
 
 #include <stdio.h>
@@ -38,22 +37,22 @@ extern "C"
 
 #include "ctrl_air.pb.h"
 #include "shellUpdate.h"
-
+#define un_test
 #define FIFO_NAME "/tmp/my_pipo"
 
-pthread_t sql_thread_t,network_thread_t,plat_net_thread_t,gps_thread_t,audio_thread_t,HU_thread_t;
+pthread_t sql_thread_t,network_thread_t,plat_net_thread_t,gps_thread_t,audio_thread_t,HU_thread_t,VPN_thread_t;
 
 pthread_mutex_t tcp_mutex;
 pthread_mutex_t sql_mutex;
 pthread_mutex_t log_mutex;
 pthread_mutex_t AT_mutex;
-pthread_mutex_t HU_mutex;
-
-
 extern param_t param;
 extern bool real_wakeup;
 extern int msgid_net_to_mcu;
 int at_fd = -1;
+
+
+
 
 int wakelock_fd;
 void mutex_init()
@@ -74,10 +73,6 @@ void mutex_init()
     {  
         Log(__FUNCTION__,"Init metux error.");  
     } 
-	if(pthread_mutex_init(&HU_mutex,NULL) != 0)
-	{
-		Log(__FUNCTION__,"Init mutex error");
-	}
 }
 
 static int onWakeup(char* wakeup_src, void* reserved)
@@ -132,7 +127,12 @@ void init_AT()
 	//set hot plug
 //	Ql_SendAT("AT+QSIMDET=1,0", "OK", 1000);
 	//set usb net share	
-	//Ql_SendAT((char*)"AT+QCFG=\"usbnet\",1",(char*)"OK", 10000);
+	Ql_SendAT((char*)"at+qcfg=\"usbnet\",1",(char*)"OK", 10000);
+	if(param.usbnet){
+		system("iptables -D FORWARD -m physdev --physdev-in ecm0 -j DROP");
+	}else{
+		system("iptables -A FORWARD -m physdev --physdev-in ecm0 -j DROP");
+	}
 }
 
 void queue_init()
@@ -189,16 +189,14 @@ void childProcessFunc()
 
 	Log(__FUNCTION__,"tbox version: %s %s %s",APP_VERSION,__DATE__,__TIME__);
 
+
 	get_param();
 	init_AT();
-
 	pthread_t uart_thread_t,module_init_thread_t;
-	
 	ret = pthread_create(&module_init_thread_t,NULL,module_init_thread,NULL);
-
 	if(ret != 0)
 	{
-		Log(__FUNCTION__,"module_init thread create failed!\n");
+		Log(__FUNCTION__,"gps thread create failed!\n");
 	}
 	
 	ret = pthread_create(&gps_thread_t,NULL,gps_thread,NULL);
@@ -206,31 +204,29 @@ void childProcessFunc()
 	{
 		Log(__FUNCTION__,"gps thread create failed!\n");
 	}
-
 	ret = pthread_create(&sql_thread_t,NULL,sql_thread,NULL);
 	if(ret != 0)
 	{
 		Log(__FUNCTION__,"sql thread create failed!\n"); 
 	}
-	
 	ret = pthread_create(&uart_thread_t,NULL,uart_thread,NULL);
 	if(ret != 0)
 	{
 		Log(__FUNCTION__,"Uart thread create failed!\n"); 
 	}
-	
 	ret = pthread_create(&network_thread_t,NULL,TCP_Program,(void*)param.url);
 	if(ret != 0)
 	{
 		Log(__FUNCTION__,"Network thread create failed!\n");
 	}
-	
+
 	ret = pthread_create(&HU_thread_t,NULL,HU_thread,NULL);
 	if(ret != 0)
 	{
 		Log(__FUNCTION__,"HU thread create failed!\n");
 	}
 	
+	//ret=pthread_create(&VPN_thread_t,NULL,VPN_thread,NULL);
 	while(1)
 	{
 		sleep(20); //20S  send heart to father thread
@@ -258,11 +254,6 @@ void forkChildProcess(int sigo)
         printf("Fork new child process\n");
         childProcessFunc();
     }
-	else
-	{
-	
-		
-	}
 }
 
 int initWatchDog()
@@ -316,6 +307,7 @@ int initWatchDog()
 			}
 
 		}
+
 			
 		// 捕获子进程结束信号
 		// 父进程挂起，当有信号来时被唤醒
@@ -332,10 +324,6 @@ int initWatchDog()
 
 int main()
 {
-    printf("Main pid: %d\n", getpid());
-	//pid = fork();
-	//if(pid == 0)
-		//{
     // 初始化看门狗进程
     int ret = initWatchDog();
     if (!ret)
@@ -343,24 +331,10 @@ int main()
         printf("Init watch dog failed\n");
         return 1;
     }
-
     printf("Init watch dog success...\n");
-
     // 运行子进程代码
     childProcessFunc(); 
-		//}
-		/*
-	else
-		{
-		
-		printf("dddddddddddddddd...\n");
-		int ret = pthread_create(&HU_thread_t,NULL,HU_thread,NULL);
-		if(ret != 0)
-		{
-			Log(__FUNCTION__,"HU thread create failed!\n");
-		}
-		}
-		*/
+
     return 0;
 }
 

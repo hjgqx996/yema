@@ -43,11 +43,12 @@ class VersionInfo;
 enum ModeType {
   NORMAL = 0,
   CAN_FILE_MODE = 1,
-  TBOX_FILE_MODE = 2
+  TBOX_FILE_MODE = 2,
+  SAMPLING_MODE = 3
 };
 bool ModeType_IsValid(int value);
 const ModeType ModeType_MIN = NORMAL;
-const ModeType ModeType_MAX = TBOX_FILE_MODE;
+const ModeType ModeType_MAX = SAMPLING_MODE;
 const int ModeType_ARRAYSIZE = ModeType_MAX + 1;
 
 const ::google::protobuf::EnumDescriptor* ModeType_descriptor();
@@ -61,14 +62,14 @@ inline bool ModeType_Parse(
     ModeType_descriptor(), name, value);
 }
 enum LogLevel {
-  ERROR = 0,
-  WARNING = 1,
-  INFO = 2,
-  DEBUG = 3
+  LOG_ERROR = 0,
+  LOG_WARNING = 1,
+  LOG_INFO = 2,
+  LOG_DEBUG = 3
 };
 bool LogLevel_IsValid(int value);
-const LogLevel LogLevel_MIN = ERROR;
-const LogLevel LogLevel_MAX = DEBUG;
+const LogLevel LogLevel_MIN = LOG_ERROR;
+const LogLevel LogLevel_MAX = LOG_DEBUG;
 const int LogLevel_ARRAYSIZE = LogLevel_MAX + 1;
 
 const ::google::protobuf::EnumDescriptor* LogLevel_descriptor();
@@ -385,6 +386,37 @@ class ConfigInfo : public ::google::protobuf::Message /* @@protoc_insertion_poin
   ::LogLevel log_level() const;
   void set_log_level(::LogLevel value);
 
+  // optional string offline_config_param = 16;
+  bool has_offline_config_param() const;
+  void clear_offline_config_param();
+  static const int kOfflineConfigParamFieldNumber = 16;
+  const ::std::string& offline_config_param() const;
+  void set_offline_config_param(const ::std::string& value);
+  void set_offline_config_param(const char* value);
+  void set_offline_config_param(const char* value, size_t size);
+  ::std::string* mutable_offline_config_param();
+  ::std::string* release_offline_config_param();
+  void set_allocated_offline_config_param(::std::string* offline_config_param);
+
+  // optional string peps_security_auth_key = 17;
+  bool has_peps_security_auth_key() const;
+  void clear_peps_security_auth_key();
+  static const int kPepsSecurityAuthKeyFieldNumber = 17;
+  const ::std::string& peps_security_auth_key() const;
+  void set_peps_security_auth_key(const ::std::string& value);
+  void set_peps_security_auth_key(const char* value);
+  void set_peps_security_auth_key(const char* value, size_t size);
+  ::std::string* mutable_peps_security_auth_key();
+  ::std::string* release_peps_security_auth_key();
+  void set_allocated_peps_security_auth_key(::std::string* peps_security_auth_key);
+
+  // optional uint32 tbox_usb_net_switch = 18;
+  bool has_tbox_usb_net_switch() const;
+  void clear_tbox_usb_net_switch();
+  static const int kTboxUsbNetSwitchFieldNumber = 18;
+  ::google::protobuf::uint32 tbox_usb_net_switch() const;
+  void set_tbox_usb_net_switch(::google::protobuf::uint32 value);
+
   // @@protoc_insertion_point(class_scope:ConfigInfo)
  private:
   inline void set_has_local_cycle();
@@ -417,6 +449,12 @@ class ConfigInfo : public ::google::protobuf::Message /* @@protoc_insertion_poin
   inline void clear_has_mode_time_quantum();
   inline void set_has_log_level();
   inline void clear_has_log_level();
+  inline void set_has_offline_config_param();
+  inline void clear_has_offline_config_param();
+  inline void set_has_peps_security_auth_key();
+  inline void clear_has_peps_security_auth_key();
+  inline void set_has_tbox_usb_net_switch();
+  inline void clear_has_tbox_usb_net_switch();
 
   ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
   ::google::protobuf::uint32 _has_bits_[1];
@@ -436,6 +474,9 @@ class ConfigInfo : public ::google::protobuf::Message /* @@protoc_insertion_poin
   ::google::protobuf::uint64 mode_begin_time_;
   ::google::protobuf::uint32 mode_time_quantum_;
   int log_level_;
+  ::google::protobuf::internal::ArenaStringPtr offline_config_param_;
+  ::google::protobuf::internal::ArenaStringPtr peps_security_auth_key_;
+  ::google::protobuf::uint32 tbox_usb_net_switch_;
   friend void  protobuf_AddDesc_ctrl_5ftbox_5fparam_2eproto();
   friend void protobuf_AssignDesc_ctrl_5ftbox_5fparam_2eproto();
   friend void protobuf_ShutdownFile_ctrl_5ftbox_5fparam_2eproto();
@@ -1228,6 +1269,138 @@ inline void ConfigInfo::set_log_level(::LogLevel value) {
   set_has_log_level();
   log_level_ = value;
   // @@protoc_insertion_point(field_set:ConfigInfo.log_level)
+}
+
+// optional string offline_config_param = 16;
+inline bool ConfigInfo::has_offline_config_param() const {
+  return (_has_bits_[0] & 0x00008000u) != 0;
+}
+inline void ConfigInfo::set_has_offline_config_param() {
+  _has_bits_[0] |= 0x00008000u;
+}
+inline void ConfigInfo::clear_has_offline_config_param() {
+  _has_bits_[0] &= ~0x00008000u;
+}
+inline void ConfigInfo::clear_offline_config_param() {
+  offline_config_param_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  clear_has_offline_config_param();
+}
+inline const ::std::string& ConfigInfo::offline_config_param() const {
+  // @@protoc_insertion_point(field_get:ConfigInfo.offline_config_param)
+  return offline_config_param_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ConfigInfo::set_offline_config_param(const ::std::string& value) {
+  set_has_offline_config_param();
+  offline_config_param_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:ConfigInfo.offline_config_param)
+}
+inline void ConfigInfo::set_offline_config_param(const char* value) {
+  set_has_offline_config_param();
+  offline_config_param_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:ConfigInfo.offline_config_param)
+}
+inline void ConfigInfo::set_offline_config_param(const char* value, size_t size) {
+  set_has_offline_config_param();
+  offline_config_param_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:ConfigInfo.offline_config_param)
+}
+inline ::std::string* ConfigInfo::mutable_offline_config_param() {
+  set_has_offline_config_param();
+  // @@protoc_insertion_point(field_mutable:ConfigInfo.offline_config_param)
+  return offline_config_param_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ConfigInfo::release_offline_config_param() {
+  // @@protoc_insertion_point(field_release:ConfigInfo.offline_config_param)
+  clear_has_offline_config_param();
+  return offline_config_param_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ConfigInfo::set_allocated_offline_config_param(::std::string* offline_config_param) {
+  if (offline_config_param != NULL) {
+    set_has_offline_config_param();
+  } else {
+    clear_has_offline_config_param();
+  }
+  offline_config_param_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), offline_config_param);
+  // @@protoc_insertion_point(field_set_allocated:ConfigInfo.offline_config_param)
+}
+
+// optional string peps_security_auth_key = 17;
+inline bool ConfigInfo::has_peps_security_auth_key() const {
+  return (_has_bits_[0] & 0x00010000u) != 0;
+}
+inline void ConfigInfo::set_has_peps_security_auth_key() {
+  _has_bits_[0] |= 0x00010000u;
+}
+inline void ConfigInfo::clear_has_peps_security_auth_key() {
+  _has_bits_[0] &= ~0x00010000u;
+}
+inline void ConfigInfo::clear_peps_security_auth_key() {
+  peps_security_auth_key_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  clear_has_peps_security_auth_key();
+}
+inline const ::std::string& ConfigInfo::peps_security_auth_key() const {
+  // @@protoc_insertion_point(field_get:ConfigInfo.peps_security_auth_key)
+  return peps_security_auth_key_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ConfigInfo::set_peps_security_auth_key(const ::std::string& value) {
+  set_has_peps_security_auth_key();
+  peps_security_auth_key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:ConfigInfo.peps_security_auth_key)
+}
+inline void ConfigInfo::set_peps_security_auth_key(const char* value) {
+  set_has_peps_security_auth_key();
+  peps_security_auth_key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:ConfigInfo.peps_security_auth_key)
+}
+inline void ConfigInfo::set_peps_security_auth_key(const char* value, size_t size) {
+  set_has_peps_security_auth_key();
+  peps_security_auth_key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:ConfigInfo.peps_security_auth_key)
+}
+inline ::std::string* ConfigInfo::mutable_peps_security_auth_key() {
+  set_has_peps_security_auth_key();
+  // @@protoc_insertion_point(field_mutable:ConfigInfo.peps_security_auth_key)
+  return peps_security_auth_key_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ConfigInfo::release_peps_security_auth_key() {
+  // @@protoc_insertion_point(field_release:ConfigInfo.peps_security_auth_key)
+  clear_has_peps_security_auth_key();
+  return peps_security_auth_key_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ConfigInfo::set_allocated_peps_security_auth_key(::std::string* peps_security_auth_key) {
+  if (peps_security_auth_key != NULL) {
+    set_has_peps_security_auth_key();
+  } else {
+    clear_has_peps_security_auth_key();
+  }
+  peps_security_auth_key_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), peps_security_auth_key);
+  // @@protoc_insertion_point(field_set_allocated:ConfigInfo.peps_security_auth_key)
+}
+
+// optional uint32 tbox_usb_net_switch = 18;
+inline bool ConfigInfo::has_tbox_usb_net_switch() const {
+  return (_has_bits_[0] & 0x00020000u) != 0;
+}
+inline void ConfigInfo::set_has_tbox_usb_net_switch() {
+  _has_bits_[0] |= 0x00020000u;
+}
+inline void ConfigInfo::clear_has_tbox_usb_net_switch() {
+  _has_bits_[0] &= ~0x00020000u;
+}
+inline void ConfigInfo::clear_tbox_usb_net_switch() {
+  tbox_usb_net_switch_ = 0u;
+  clear_has_tbox_usb_net_switch();
+}
+inline ::google::protobuf::uint32 ConfigInfo::tbox_usb_net_switch() const {
+  // @@protoc_insertion_point(field_get:ConfigInfo.tbox_usb_net_switch)
+  return tbox_usb_net_switch_;
+}
+inline void ConfigInfo::set_tbox_usb_net_switch(::google::protobuf::uint32 value) {
+  set_has_tbox_usb_net_switch();
+  tbox_usb_net_switch_ = value;
+  // @@protoc_insertion_point(field_set:ConfigInfo.tbox_usb_net_switch)
 }
 
 // -------------------------------------------------------------------

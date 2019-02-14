@@ -1,7 +1,12 @@
 #ifndef __NETWORK_H
 #define __NETWORK_H
 #include <stdbool.h>
-
+#include "ql_oe.h"
+int config_route(int sockfd, int timeout, char *dev_name);
+int unlinkNetwork(int apnId);
+int configureNetwork(int apnId,char *apnName);
+static void data_call_state_callback(ql_data_call_state_s *state);
+char * linkNetwork(int apnId);
 void* TCP_Program(void* tcp_param);
 
 void* module_init_thread(void* module_param);

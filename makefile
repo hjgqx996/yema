@@ -42,8 +42,8 @@ LOCAL_SRC_FILES = \
 		./ql_tzapp.c\
 		./gpExtendQueue.cpp\
 		./shellUpdate.cpp\
-		./HU.c
-
+		./HU.c\
+		
 STD_LIB= $(SDKTARGETSYSROOT)/usr/lib/libdsi_netctrl.so     \
          $(SDKTARGETSYSROOT)/usr/lib/libdsutils.so         \
          $(SDKTARGETSYSROOT)/usr/lib/libqmiservices.so     \

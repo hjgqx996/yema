@@ -39,33 +39,33 @@ class CtrlDiagnosisMessage;
 class DiagnosisTypeInfo;
 
 enum DiagnosisType {
-  ALL = 255,
-  AFS = 1,
-  SAS = 2,
-  APA = 3,
-  SRS = 4,
-  BCM = 5,
-  IC = 6,
-  PEPS = 7,
-  AC = 8,
-  TPMS = 9,
-  DVD = 10,
-  PRM = 11,
-  SCM = 12,
-  TBOX = 13,
-  NVS = 14,
-  HUD = 15,
-  AVM = 16,
-  LDW = 17,
-  BSD = 18,
-  DR = 19,
-  GW = 20,
-  AC_COMPRESSOR = 21,
-  MP5CP = 22
+  DIAG_TYPE_ALL = 255,
+  DIAG_TYPE_AFS = 1,
+  DIAG_TYPE_SAS = 2,
+  DIAG_TYPE_APA = 3,
+  DIAG_TYPE_SRS = 4,
+  DIAG_TYPE_BCM = 5,
+  DIAG_TYPE_IC = 6,
+  DIAG_TYPE_PEPS = 7,
+  DIAG_TYPE_AC = 8,
+  DIAG_TYPE_TPMS = 9,
+  DIAG_TYPE_DVD = 10,
+  DIAG_TYPE_PRM = 11,
+  DIAG_TYPE_SCM = 12,
+  DIAG_TYPE_TBOX = 13,
+  DIAG_TYPE_NVS = 14,
+  DIAG_TYPE_HUD = 15,
+  DIAG_TYPE_AVM = 16,
+  DIAG_TYPE_LDW = 17,
+  DIAG_TYPE_BSD = 18,
+  DIAG_TYPE_DR = 19,
+  DIAG_TYPE_GW = 20,
+  DIAG_TYPE_AC_COMPRESSOR = 21,
+  DIAG_TYPE_MP5CP = 22
 };
 bool DiagnosisType_IsValid(int value);
-const DiagnosisType DiagnosisType_MIN = AFS;
-const DiagnosisType DiagnosisType_MAX = ALL;
+const DiagnosisType DiagnosisType_MIN = DIAG_TYPE_AFS;
+const DiagnosisType DiagnosisType_MAX = DIAG_TYPE_ALL;
 const int DiagnosisType_ARRAYSIZE = DiagnosisType_MAX + 1;
 
 const ::google::protobuf::EnumDescriptor* DiagnosisType_descriptor();

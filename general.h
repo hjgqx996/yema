@@ -22,6 +22,7 @@
 #define PARAM_PATH	"/home/root/param.json"
 #define BAK_PARAM_PATH	"/usrdata/param.json"
 #define UPGRADE_PATH "/home/root/upgrade.json"
+#define FIERWARE_PATH "/etc/quectel-project-version"
 
 #define ALL_VEHICLE 0
 #define FRONT_VEHICLE 1
@@ -40,6 +41,7 @@ void init_get_device_check_param();
 void init_save_upgrade();
 bool get_json_upgrade(char *jsonStr);
 void get_upgrade();
+bool getFirewareVersion(char *firewareVersion);
 
 
 #endif
