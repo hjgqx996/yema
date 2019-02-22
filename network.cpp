@@ -298,6 +298,7 @@ char * linkNetwork(int apnId)
 		printf("\tBytes Receive:        %lld\n", g_call_info.v4.stats.bytes_rx);
 		printf("\tPackets drop Transmit: %ld\n", g_call_info.v4.stats.pkts_dropped_tx);
 		printf("\tPackets drop Receive:  %ld\n", g_call_info.v4.stats.pkts_dropped_rx);
+		/*set the dns and it's route of rmnet_data0*/
 		if(1==g_call.profile_idx)
 		{
 			char command[128];
@@ -2641,30 +2642,25 @@ static void data_call_state_callback(ql_data_call_state_s *state)
 					init_save_param(BAK_PARAM_PATH);
 				}
 			}
-			
-				if(1 == state->profile_idx) 
-				{
-					/*
-					snprintf(command, sizeof(command), "route add default gw %s",
-						inet_ntoa(state->v4.gateway));
-					system(command);
-					*/
-					printf("set defualt dns !!!!!!!!!!!!!!!!!!!!!!!\n");
-					snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
-						inet_ntoa(state->v4.pri_dns));
-					system(command);
-					printf("%s\n",command);
-					snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
-						inet_ntoa(state->v4.sec_dns));
-					system(command);
-					printf("%s\n",command);
-					snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(state->v4.pri_dns));
-					system(command);
-					printf("%s\n",command);
-					snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(state->v4.sec_dns));
-					system(command);
-					printf("%s\n",command);
-				}
+			    /*set the dns and it's route of rmnet_data0*/
+			if(1 == state->profile_idx) 
+			{
+				printf("set defualt dns !!!!!!!!!!!!!!!!!!!!!!!\n");
+				snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
+					inet_ntoa(state->v4.pri_dns));
+				system(command);
+				printf("%s\n",command);
+				snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
+					inet_ntoa(state->v4.sec_dns));
+				system(command);
+				printf("%s\n",command);
+				snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(state->v4.pri_dns));
+				system(command);
+				printf("%s\n",command);
+				snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(state->v4.sec_dns));
+				system(command);
+				printf("%s\n",command);
+			}
 				
 		} else {
 			char ipv6_buffer[INET6_ADDRSTRLEN];
@@ -2794,15 +2790,11 @@ void* module_init_thread(void* module_param)
 			}
 			else if (idx == 1)
 			{
-				
 				(void)strncpy(record[idx].apn, "CMIOT" , sizeof(record[idx].apn));
 				retval = configureNetwork(record[idx].apnId, record[idx].apn);
 			    linkNetwork(record[idx].apnId);
-			    
-				//configDNSAddr(record[idx].apnId);
-				
+                /*set defualt route and forward*/
 				system("route add default dev rmnet_data1");
-				//system("iptables -F");
 				system("echo 1 > /proc/sys/net/ipv4/ip_forward");
 				system("iptables -t nat -A POSTROUTING -o rmnet_data1 -j MASQUERADE --random");
 				
