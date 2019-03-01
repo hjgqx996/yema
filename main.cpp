@@ -154,6 +154,7 @@ void queue_init()
 
 void childProcessFunc()
 {
+	system(" killall -9 mcm_ril_service mcm_data_srv MCM_MOBILEAP_ConnectionManager ");
 	Log(__FUNCTION__,"child process init\n");
 	if (access(FIFO_NAME, F_OK) == -1)	
 	{  
