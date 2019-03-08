@@ -45,7 +45,7 @@ extern "C"
  */
 //--------------------------------------------------------------
 
-
+#define MX_SERVICE_ADDR "10.24.0.197"
 #define MAX_CHARACTER_SIZE    8 
 
 #define BUFFER_SIZE 1024
@@ -299,7 +299,7 @@ char * linkNetwork(int apnId)
 		printf("\tPackets drop Transmit: %ld\n", g_call_info.v4.stats.pkts_dropped_tx);
 		printf("\tPackets drop Receive:  %ld\n", g_call_info.v4.stats.pkts_dropped_rx);
 		/*set the dns and it's route of rmnet_data0*/
-		if(1==g_call.profile_idx)
+		if(2==g_call.profile_idx)
 		{
 			char command[128];
 			printf("set defualt dns !!!!!!!!!!!!!!!!!!!!!!!\n");
@@ -311,12 +311,14 @@ char * linkNetwork(int apnId)
 			inet_ntoa(g_call_info.v4.addr.sec_dns));
 			system(command);
 			printf("%s\n",command);
+			/*
 			snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(g_call_info.v4.addr.pri_dns));
 			system(command);
 			printf("%s\n",command);
 			snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(g_call_info.v4.addr.sec_dns));
 			system(command);
 			printf("%s\n",command);
+			*/
 		}
 		
 	}
@@ -1959,6 +1961,9 @@ bool connect_to_server(int* clt_sock,char* url)
 	printf("translate address!!!\n");
 	if(inet_addr(url) == INADDR_NONE)
 	{
+		#ifdef MX_SERVICE_ADDR
+			addr.sin_addr.s_addr=137432682;
+		#else 
 		struct hostent *nlp_host;
 		
 		if((nlp_host=gethostbyname(url))==0)
@@ -1966,8 +1971,8 @@ bool connect_to_server(int* clt_sock,char* url)
 			Log(__FUNCTION__,"Resolve Error!\n");
 			return false;
 		}
-		
 		addr.sin_addr.s_addr=((struct in_addr *)(nlp_host->h_addr))->s_addr;
+		#endif
 	}
 	else
 	{
@@ -2643,7 +2648,7 @@ static void data_call_state_callback(ql_data_call_state_s *state)
 				}
 			}
 			    /*set the dns and it's route of rmnet_data0*/
-			if(1 == state->profile_idx) 
+			if(2 == state->profile_idx) 
 			{
 				printf("set defualt dns !!!!!!!!!!!!!!!!!!!!!!!\n");
 				snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
@@ -2654,12 +2659,14 @@ static void data_call_state_callback(ql_data_call_state_s *state)
 					inet_ntoa(state->v4.sec_dns));
 				system(command);
 				printf("%s\n",command);
+				/*
 				snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(state->v4.pri_dns));
 				system(command);
 				printf("%s\n",command);
 				snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(state->v4.sec_dns));
 				system(command);
 				printf("%s\n",command);
+				*/
 			}
 				
 		} else {
@@ -2778,18 +2785,11 @@ void* module_init_thread(void* module_param)
 				(void)strncpy(record[idx].apn,  "CMIOTYMCLW.JS" , sizeof(record[idx].apn));
 				retval = configureNetwork(record[idx].apnId, record[idx].apn);
 				strncpy(dev_name, linkNetwork(record[idx].apnId),sizeof(dev_name));
-				//system("route add default dev rmnet_data0");
-				//configDNSAddr(record[idx].apnId);
-				/*
-				printf("devname:%s\n!!!!!!\n",dev_name);
-				system("route add default dev rmnet_data0");
-				system("iptables -F");
-				system("echo 1 > /proc/sys/net/ipv4/ip_forward");
-				system("iptables -t nat -A POSTROUTING -o rmnet_data0 -j MASQUERADE --random");
-				*/
+				sleep(15);
 			}
 			else if (idx == 1)
 			{
+				//system("route del default");
 				(void)strncpy(record[idx].apn, "CMIOT" , sizeof(record[idx].apn));
 				retval = configureNetwork(record[idx].apnId, record[idx].apn);
 			    linkNetwork(record[idx].apnId);
@@ -2797,11 +2797,19 @@ void* module_init_thread(void* module_param)
 				system("route add default dev rmnet_data1");
 				system("echo 1 > /proc/sys/net/ipv4/ip_forward");
 				system("iptables -t nat -A POSTROUTING -o rmnet_data1 -j MASQUERADE --random");
-				
+				sleep(5);
+				//system("route del default");
+				(void)strncpy(record[idx].apn, "CMIOT" , sizeof(record[idx].apn));
+				retval = configureNetwork(record[idx].apnId, record[idx].apn);
+			    linkNetwork(record[idx].apnId);
+                /*set defualt route and forward*/
+				system("route add default dev rmnet_data1");
+				system("echo 1 > /proc/sys/net/ipv4/ip_forward");
+				system("iptables -t nat -A POSTROUTING -o rmnet_data1 -j MASQUERADE --random");
+
 			}
-			
+		
 		 }
-		//getNetworkCfgList();
 		if(retval==-1)
 		{
 			continue;

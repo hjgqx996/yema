@@ -167,7 +167,6 @@ void childProcessFunc()
 			exit(0);
 		}  
 	}  
-	
 	int pipe_fd;
 	pipe_fd = open(FIFO_NAME, O_WRONLY);
 	char str[10] = {0};
@@ -248,7 +247,6 @@ void forkChildProcess(int sigo)
     // 等待3秒钟重新启动子进程
     sleep(3);
 
-	
     pid = fork();
     if (pid == 0)
     {
