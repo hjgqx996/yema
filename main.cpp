@@ -204,11 +204,13 @@ void childProcessFunc()
 	{
 		Log(__FUNCTION__,"gps thread create failed!\n");
 	}
+	
 	ret = pthread_create(&sql_thread_t,NULL,sql_thread,NULL);
 	if(ret != 0)
 	{
 		Log(__FUNCTION__,"sql thread create failed!\n"); 
 	}
+	
 	ret = pthread_create(&uart_thread_t,NULL,uart_thread,NULL);
 	if(ret != 0)
 	{
@@ -225,8 +227,6 @@ void childProcessFunc()
 	{
 		Log(__FUNCTION__,"HU thread create failed!\n");
 	}
-	
-	//ret=pthread_create(&VPN_thread_t,NULL,VPN_thread,NULL);
 	while(1)
 	{
 		sleep(20); //20S  send heart to father thread
@@ -333,6 +333,7 @@ int main()
     printf("Init watch dog success...\n");
     // 运行子进程代码
     childProcessFunc(); 
+
     return 0;
 }
 

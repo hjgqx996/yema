@@ -102,6 +102,7 @@ static unsigned long long door_control_valide;
 static unsigned long long air_control_valide;
 ql_data_call_info_s g_call_info;
 char dev_name[30];
+char firstlyDns[128]={0};
 #define BUF_SIZE 128
 ql_data_call_s g_call;
 enum remote_control_type{
@@ -135,6 +136,7 @@ struct network_record
 char *dev_name1=NULL;
 unsigned char statusBuf[BUFFER_SIZE];
 static remote_control_type control_type = no_control_type;
+bool apn2DnsSetStatusFlag=0;
 
  int config_route(int sockfd, int timeout, char *dev_nam)
 {/*dev_name is network interface name, such as rmnet_dataX, X begin with 0*/
@@ -219,7 +221,7 @@ int configureNetwork(int apnId,char *apnName)
 	printf("the set apn is :%s",apn_get.apn_name);
 	if(apnId==1)
 	{
-		Ql_SendAT((char*)"AT+CGDCONT=1,\"IP\",\"CMIOTYMCLW.JS\"", (char*)"OK", 1000);//CMIOTGGG
+		Ql_SendAT((char*)"AT+CGDCONT=1,\"IP\",\"CMIOTNBECARAPN.ZJ\"", (char*)"OK", 1000);//CMIOTGGG
 	}
 	else if(apnId==2)
 	{
@@ -299,26 +301,31 @@ char * linkNetwork(int apnId)
 		printf("\tPackets drop Transmit: %ld\n", g_call_info.v4.stats.pkts_dropped_tx);
 		printf("\tPackets drop Receive:  %ld\n", g_call_info.v4.stats.pkts_dropped_rx);
 		/*set the dns and it's route of rmnet_data0*/
+		char command[128];
 		if(2==g_call.profile_idx)
 		{
-			char command[128];
-			printf("set defualt dns !!!!!!!!!!!!!!!!!!!!!!!\n");
-			snprintf(command, sizeof(command), "echo 'nameserver %s' > /etc/resolv.conf",
-			inet_ntoa(g_call_info.v4.addr.pri_dns));
-			system(command);
-			printf("%s\n",command);
-			snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
-			inet_ntoa(g_call_info.v4.addr.sec_dns));
-			system(command);
-			printf("%s\n",command);
-			/*
-			snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(g_call_info.v4.addr.pri_dns));
-			system(command);
-			printf("%s\n",command);
-			snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(g_call_info.v4.addr.sec_dns));
-			system(command);
-			printf("%s\n",command);
-			*/
+			if(memcmp(inet_ntoa(g_call_info.v4.addr.sec_dns),"0.0.0.0",sizeof("0.0.0.0"))==0)
+			{
+				apn2DnsSetStatusFlag=0;
+				printf("inet_ntoa(g_call_info.v4.addr.sec_dns) is 0.0.0.0\n");
+			}
+			else
+			{
+				apn2DnsSetStatusFlag=1;
+				printf("set defualt dns !!!!!!!!!!!!!!!!!!!!!!!\n");
+				snprintf(command, sizeof(command), "echo 'nameserver %s' > /etc/resolv.conf",
+				inet_ntoa(g_call_info.v4.addr.pri_dns));
+
+				system(command);
+				printf("%s\n",command);
+				snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
+				inet_ntoa(g_call_info.v4.addr.sec_dns));
+				system(command);
+				printf("%s\n",command);
+				
+				
+			}
+			
 		}
 		
 	}
@@ -1958,14 +1965,43 @@ bool connect_to_server(int* clt_sock,char* url)
     struct sockaddr_in addr;   
     addr.sin_family = AF_INET;   
     addr.sin_port = htons(param.port);   
-	printf("translate address!!!\n");
+	printf("translate address!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	if(inet_addr(url) == INADDR_NONE)
 	{
 		#ifdef MX_SERVICE_ADDR
-			addr.sin_addr.s_addr=137432682;
+	         /*
+			int i=0;
+			char resolved_output[128]={0};
+			hostaddr_info_u resolved_addr;
+
+
+			
+			char hostname[64]="www.baidu.com";
+			printf(" hostname!!!!!!!!!!!!!!!:%s\n", hostname);
+			char dns_server_ip[20]=" 211.136.17.107";//"10.231.38.81";
+
+			
+			QUERY_IP_TYPE ip_type=QUERY_IPV4_E;
+			//QL_nslookup( "www.baidu.com", "121.158.280.8", AF_INET, resolved_output);
+			//while(1)
+				{
+				sleep(1);
+			printf("QL_nslookup!!!!!!!!!!!!!!!\n");
+			printf("firstlyDns:%s!!!!!!!!!!!!!!!\n",firstlyDns);
+			QL_nslookup(hostname, firstlyDns, ip_type, &resolved_addr);
+    		printf("resolve addr!!!!!!!!!!!!!!!\n");
+		    //printf resolved addr
+		    for (i = 0; i < resolved_addr.addr_cnt; i++) {
+		         inet_ntop(AF_INET, &resolved_addr.addr[i].s_addr, resolved_output, sizeof(resolved_output));
+		         printf("%s has IPv4 address : %s\n\r","www.baidu.com", resolved_output);
+				 addr.sin_addr.s_addr=inet_addr("10.24.0.197");//137432682;
+		    }
+				}
+			//printf("resolved_output:%s",resolved_output);
+			*/
+			addr.sin_addr.s_addr=inet_addr("10.24.0.197");//137432682;//
 		#else 
 		struct hostent *nlp_host;
-		
 		if((nlp_host=gethostbyname(url))==0)
 		{
 			Log(__FUNCTION__,"Resolve Error!\n");
@@ -2141,7 +2177,7 @@ void SocketRecv_Proc(int socketFd)
     unsigned char recvbuf[BUFFER_SIZE];
 	short empty_time = 0;
 	int timeout = param.tcp_rcv_timeout;
-
+    int apn2DnsErrorCount=0;
     while (!network_thread_cancel)
     {
 		memset(recvbuf, 0, sizeof(recvbuf));  
@@ -2208,6 +2244,17 @@ void SocketRecv_Proc(int socketFd)
 			{
 				Log(__FUNCTION__,"check sum failed");
 			}
+			if(apn2DnsSetStatusFlag==0)
+			{
+				apn2DnsErrorCount++;
+				printf("apn2DnsErrorCount:%d\n",apn2DnsErrorCount);
+				if(apn2DnsErrorCount==10)
+				{
+					printf("the apn2 dns set error and start to reboot!");
+					sleep(1);
+					system("reboot");
+				}
+			}
 
 		}
 
@@ -2225,6 +2272,7 @@ void* TCP_Program(void* tcp_param)
 	while(!network_thread_cancel)
 	{
 		int connect_timeout = 0;
+		int connectFailedCount=0;
 		int step = connect_step;
 		int ret;
 		while((step != finish_step)&&(!network_thread_cancel))
@@ -2262,10 +2310,15 @@ void* TCP_Program(void* tcp_param)
 						step = auth_step;
 					}
 					connect_timeout = 0;
+					connectFailedCount=0;
 				}
 				else
 				{
 					Log(__FUNCTION__,"connect to server failed\n");
+					connectFailedCount++;
+					printf("connectFailedCount!!!!!!!!:%d",connectFailedCount);
+					if(connectFailedCount==10)
+						system("reboot");
 					sleep(1);
 				}
 				break;
@@ -2650,23 +2703,23 @@ static void data_call_state_callback(ql_data_call_state_s *state)
 			    /*set the dns and it's route of rmnet_data0*/
 			if(2 == state->profile_idx) 
 			{
-				printf("set defualt dns !!!!!!!!!!!!!!!!!!!!!!!\n");
-				snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
-					inet_ntoa(state->v4.pri_dns));
-				system(command);
-				printf("%s\n",command);
-				snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
-					inet_ntoa(state->v4.sec_dns));
-				system(command);
-				printf("%s\n",command);
-				/*
-				snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(state->v4.pri_dns));
-				system(command);
-				printf("%s\n",command);
-				snprintf(command,sizeof(command),"ip route add %s/32 dev rmnet_data0",inet_ntoa(state->v4.sec_dns));
-				system(command);
-				printf("%s\n",command);
-				*/
+				if(memcmp(inet_ntoa(state->v4.pri_dns),"0.0.0.0",sizeof("0.0.0.0"))==0)
+				{
+					apn2DnsSetStatusFlag=0;
+					printf("inet_ntoa(g_call_info.v4.addr.sec_dns) is  0.0.0.0\n");
+				}
+				else
+				{
+					apn2DnsSetStatusFlag=1;
+					printf("set defualt dns !!!!!!!!!!!!!!!!!!!!!!!\n");
+					snprintf(command, sizeof(command), "echo 'nameserver %s' > /etc/resolv.conf",
+						inet_ntoa(state->v4.pri_dns));
+					system(command);
+					printf("%s\n",command);
+					snprintf(command, sizeof(command), "echo 'nameserver %s' >> /etc/resolv.conf",
+						inet_ntoa(state->v4.sec_dns));
+					system(command);
+				}
 			}
 				
 		} else {
@@ -2782,15 +2835,16 @@ void* module_init_thread(void* module_param)
 			strncpy(record[idx].ip, param.url, sizeof(record[idx].ip));
 			if (idx == 0)
 			{
-				(void)strncpy(record[idx].apn,  "CMIOTYMCLW.JS" , sizeof(record[idx].apn));
+				(void)strncpy(record[idx].apn,  "cmiotnbecarapn.zj" , sizeof(record[idx].apn));
 				retval = configureNetwork(record[idx].apnId, record[idx].apn);
 				strncpy(dev_name, linkNetwork(record[idx].apnId),sizeof(dev_name));
+				system("route add default dev rmnet_data0");
 				sleep(15);
 			}
 			else if (idx == 1)
 			{
 				//system("route del default");
-				(void)strncpy(record[idx].apn, "CMIOT" , sizeof(record[idx].apn));
+				(void)strncpy(record[idx].apn, "cmiot" , sizeof(record[idx].apn));
 				retval = configureNetwork(record[idx].apnId, record[idx].apn);
 			    linkNetwork(record[idx].apnId);
                 /*set defualt route and forward*/
@@ -2799,7 +2853,7 @@ void* module_init_thread(void* module_param)
 				system("iptables -t nat -A POSTROUTING -o rmnet_data1 -j MASQUERADE --random");
 				sleep(5);
 				//system("route del default");
-				(void)strncpy(record[idx].apn, "CMIOT" , sizeof(record[idx].apn));
+				(void)strncpy(record[idx].apn, "cmiot" , sizeof(record[idx].apn));
 				retval = configureNetwork(record[idx].apnId, record[idx].apn);
 			    linkNetwork(record[idx].apnId);
                 /*set defualt route and forward*/
@@ -2813,6 +2867,30 @@ void* module_init_thread(void* module_param)
 		if(retval==-1)
 		{
 			continue;
+		}
+		//while(1)
+		{
+		/*
+			int i=0;
+			char resolved_output[128]={0};
+			hostaddr_info_u resolved_addr;
+			char hostname[64]="www.baidu.com";
+			printf(" hostname!!!!!!!!!!!!!!!:%s\n", hostname);
+			char dns_server_ip[20]="211.136.17.107";//"10.231.38.81";211.136.17.107
+			
+			QUERY_IP_TYPE ip_type=QUERY_IPV4_E;
+			//QL_nslookup( "www.baidu.com", "121.158.280.8", AF_INET, resolved_output);
+			printf("QL_nslookup!!!!!!!!!!!!!!!\n");
+			QL_nslookup(hostname, dns_server_ip, ip_type, &resolved_addr);
+    		printf("resolve addr!!!!!!!!!!!!!!!\n");
+		    //printf resolved addr
+		    for (i = 0; i < resolved_addr.addr_cnt; i++) {
+		         inet_ntop(AF_INET, &resolved_addr.addr[i].s_addr, resolved_output, sizeof(resolved_output));
+		         printf("%s has IPv4 address : %s\n\r","www.baidu.com", resolved_output);
+		    }
+		   */
+			//printf("resolved_output:%s",resolved_output);
+			//addr.sin_addr.s_addr=inet_addr("10.24.0.197");//137432682;
 		}
 		module_init_thread_restart = false;
 		while (!module_init_thread_restart) 
