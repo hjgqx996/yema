@@ -333,7 +333,6 @@ int main()
     printf("Init watch dog success...\n");
     // 运行子进程代码
     childProcessFunc(); 
-
     return 0;
 }
 
