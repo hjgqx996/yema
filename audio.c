@@ -242,7 +242,7 @@ int audio_thread()
 		}//end if
 		else
 		{
-			Log_print(__FUNCTION__,"CMD = %d\n",msg.data[0]);
+			Log(__FUNCTION__,"CMD = %d\n",msg.data[0]);
 			Ql_GPIO_SetLevel(GPIO_BIG_VOICE, PINLEVEL_HIGH);
 			usleep(150000);
 			Ql_GPIO_SetLevel(GPIO_MUTE, PINLEVEL_LOW);

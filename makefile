@@ -4,7 +4,7 @@
 #--------------------------------------------------------------
 SDK_PATH=/home/chenfang/Tbox/1025/ql-ol-sdk/ql-ol-extsdk/
 GCC_VERSION=4.9.2
-
+#SDK_PATH=/home/chenfang/Tbox/1025/ql-ol-sdk/ql-ol-extsdk/
 #---------------------
 # Include definition
 #---------------------

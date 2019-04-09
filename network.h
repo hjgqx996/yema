@@ -24,6 +24,7 @@ void collision_alert();
 void lilegal_encroachment();
 
 void ack_engine_start();
+void ack_electromotor_start();
 void ack_door_start();
 void ack_remote_ctrl_enable();
 void ack_charge_start();
@@ -31,5 +32,6 @@ void ack_panel_protecion_ctrl();
 void ack_air_ctrl();
 void ack_truck_lock_ctrl();
 
+void get_file_upload_url();
 
 #endif

@@ -28,6 +28,9 @@
 #define FRONT_VEHICLE 1
 #define REAR_VEHICLE 2;
 
+extern int runModeType;
+extern upload_file_param uploadFileParam;
+
 void get_param();
 void init_save_param(const char* path);
 void Log(const char *fun,const char *fmt, ...);

@@ -133,7 +133,7 @@ void RSA_pub_encrypt(char* pubkey_path,unsigned char *str,char *p_en)
    RSA_free(p_rsa);
    fclose(file);
    
-   Log_print(__FUNCTION__,"RSA_encrypt finish");
+   Log(__FUNCTION__,"RSA_encrypt finish");
 }
 
 void RSA_pub_decrypt(const char* pubkey_path,unsigned char *str,char *p_de)  
@@ -163,7 +163,7 @@ void RSA_pub_decrypt(const char* pubkey_path,unsigned char *str,char *p_de)
 	}
 	RSA_free(p_rsa);
 	fclose(file);
-	Log_print(__FUNCTION__,"RSA_decrypt finish");
+	Log(__FUNCTION__,"RSA_decrypt finish");
 
 }  
 
@@ -186,7 +186,7 @@ void aes_encrypt(unsigned char* input_string,int input_len,int *offset)
 	}*/
 	//(*offset) += AES_BLOCK_SIZE - (input_len%AES_BLOCK_SIZE);
     // encrypt (iv will change)
-    Log_print(__FUNCTION__,"encrypt len = %d\n",len);
+    Log(__FUNCTION__,"encrypt len = %d\n",len);
 	if (AES_set_encrypt_key(AES_key, 128, &aes) < 0) 
 	{
         Log(__FUNCTION__,"Unable to set encryption key in AES\n");
@@ -220,9 +220,9 @@ void aes_decrypt(unsigned char* encrypt_string,int* len,FILE* fd)
 		}
 		if(i >= decrypt_string[15])
 		{
-			Log_print(__FUNCTION__,"i = %d\n",i);
+			Log(__FUNCTION__,"i = %d\n",i);
 			*len -= decrypt_string[15];
-			Log_print(__FUNCTION__,"len = %d\n",*len);
+			Log(__FUNCTION__,"len = %d\n",*len);
 		}
 	}
 	else if(decrypt_string[15] == 0x01)
@@ -252,7 +252,7 @@ void sha256_file(const char* file_path,unsigned char* hash)
 		SHA256_Update(&sha256,buf,read_len);
 	}while(read_len >= sizeof(buf));
     SHA256_Final(hash, &sha256);
-	Log_print(__FUNCTION__,"%s hash:",file_path);
+	Log(__FUNCTION__,"%s hash:",file_path);
     for(i = 0; i < SHA256_DIGEST_LENGTH; i++)
     {
         Log_print("%X",hash[i]);
@@ -486,7 +486,7 @@ void AES_pack(unsigned char* data,int* offset)
 	RAND_bytes(buf + 8,16);
 	memcpy(AES_key,buf+8,16);
 
-	Log_print(__FUNCTION__,"aes key:");
+	Log(__FUNCTION__,"aes key:");
 	int i;
 	for(i = 0;i < 128;i++)
 	{
@@ -753,7 +753,7 @@ bool sql_save_data(unsigned char *data,date_time param_date,int length)
 		sprintf(sql_data + i*2,"%02X",data[i]);
 	}
 	sprintf(query_str,"insert or ignore into car_log values('%s','%s',0);",date,sql_data);
-	Log_print(__FUNCTION__,"sql save data\n");
+	//Log_print(__FUNCTION__,"sql save data\n");
 	//Log(__FUNCTION__, "%s\n",query_str);
 	sqlite3_exec( db , query_str , 0 , 0 , &zErrMsg );  
 	if(zErrMsg != 0)
@@ -781,7 +781,7 @@ void sql_mark_send_failed(char* date)
 	pthread_mutex_lock(&sql_mutex);
 	sprintf(query_str,"insert or ignore into unsend_log select * from send_log where DATE='%s'",date);
 	sqlite3_exec( db , query_str , 0 , 0 , &zErrMsg );  
-	Log_print(__FUNCTION__,query_str);
+	Log(__FUNCTION__,query_str);
 	if(zErrMsg != 0)
 	{
 		Log(__FUNCTION__,zErrMsg); 
@@ -813,7 +813,7 @@ void sql_fault_mark()
 	sprintf(query_str1,"update car_log set SEND_FINISH=2 where DATE>'%s';",date);
 	sprintf(query_str2,"update unsend_log set SEND_FINISH=2 where DATE>'%s';",date);
 	sqlite3_exec( db , query_str , 0 , 0 , &zErrMsg );  
-	Log_print(__FUNCTION__,query_str);
+	Log(__FUNCTION__,query_str);
 	if(zErrMsg != 0)
 	{
 		Log(__FUNCTION__,zErrMsg); 
@@ -955,7 +955,7 @@ void* sql_thread(void* sql_param)
 				{
 					Log(__FUNCTION__,"len = 0");
 				}
-				Log_print(__FUNCTION__,"param.data_period=%d",param.data_period);
+				Log(__FUNCTION__,"param.data_period=%d",param.data_period);
 				period = param.data_period*2;
 			}
 			else

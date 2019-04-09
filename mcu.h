@@ -12,7 +12,7 @@ void find_car_cmd();
 void engine_start_cmd(unsigned char value);
 void charge_start_cmd(unsigned char value);
 void remote_ctrl_enable_cmd(unsigned char value);
-void electromotor_ctrl_cmd(bool status);
+void electromotor_ctrl_cmd(unsigned char value);
 void windows_ctrl_cmd(unsigned char place,unsigned char value);
 void doors_ctrl_cmd(unsigned char place,unsigned char value);
 void chair_ctrl_cmd(unsigned char place,unsigned char value);
@@ -31,5 +31,9 @@ void air_purify_stop();
 void air_stop();
 void air_set_temperature(unsigned char temperature);
 
+void upgrade(int type);
+
+
+void start_can_messege_upload(unsigned int quantumTime);
 
 #endif

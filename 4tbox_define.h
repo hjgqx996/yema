@@ -119,6 +119,12 @@ enum sound_ID{
 	out_range_sound
 };
 
+typedef struct _upload_file_param{
+	unsigned int fileMode;
+	unsigned int startTime;
+	unsigned int endTime;
+	char fileName[64];
+}upload_file_param;
 
 typedef struct{
     unsigned char year;
@@ -326,6 +332,7 @@ typedef struct{
 #define DATA_SEND_AES		0xC1
 #define DATA_GET_VERSION	0xC2
 #define DATA_RES_UPLOAD		0xC3
+#define DATA_FILE_UPLOAD    0xC4
 
 //ack flag
 #define DATA_SUCCESS		0x01
@@ -454,6 +461,7 @@ typedef struct{
 }air_condition_param_t;
 
 typedef struct{
+	int remote_enable_status; //车身设防状态
 	int ekey_status; //钥匙使能
 	int electrify_status;  	//上电
 	int charge_status;        //充电
@@ -493,18 +501,24 @@ typedef struct{
 	unsigned int vcu_upgrade_status;
 	unsigned int mcu_mcu_upgrade_status;
 	unsigned int bms_upgrade_status;
+	unsigned int dcdc_upgrade_status;
+	unsigned int obc_upgrade_status;
 	
 	unsigned char pc_upgrade_path[512];
 	unsigned char mcu_upgrade_path[512];
 	unsigned char vcu_upgrade_path[512];
 	unsigned char mcu_mcu_upgrade_path[512];	
 	unsigned char bms_upgrade_path[512];
+	unsigned char dcdc_upgrade_path[512];
+	unsigned char obc_upgrade_path[512];
 	
 	unsigned char pc_upgrade_sign[512];
 	unsigned char mcu_upgrade_sign[512];
 	unsigned char vcu_upgrade_sign[512];
 	unsigned char mcu_mcu_upgrade_sign[512];
 	unsigned char bms_upgrade_sign[512];
+	unsigned char dcdc_upgrade_sign[512];
+	unsigned char obc_upgrade_sign[512];
 }upgrade_param_t;
 
 typedef struct{
@@ -515,6 +529,8 @@ typedef struct{
 	int brakePedalPositionValidity; 
 	int accelerationPedalPositionValidity;
 }tbox_extend_t;
+
+
 
 #define CMD_HEAD	0xFF
 #define CMD_NOACK	0xBB
@@ -532,6 +548,7 @@ typedef struct{
 
 #define KEY_PARAM 0x6
 #define VEHICLE_PARAM 0x7
+#define TBOX_MODE_SWITCH 0x8
 #define MCU_BASIC_INFOMATION 0x04
 #define PC_BASIC_INFOMATION 0x84
 #define MCU_AIR_CONDITION 0x01

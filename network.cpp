@@ -19,6 +19,7 @@ extern "C"
 #include "ql_qcmap_client_api.h"
 #include "general.h"
 #include "t_ssl.h"
+#include "fileNetUpload.h"
 }
 
 #include "ctrl_air.pb.h"
@@ -35,8 +36,12 @@ extern "C"
 #include "term_version_upload.pb.h"
 #include "term_command_result.pb.h"
 #include "ctrl_fota.pb.h"
+#include "device_confirm_upload.pb.h"
+#include "device_requset_upload.pb.h"
+#include "device_response_upload.pb.h"
 #include <string>
 #include "shellUpdate.h"
+
 
 
 //--------------------------------------------------------------
@@ -75,6 +80,7 @@ extern unsigned char pipe_Skey[32];
 
 extern unsigned char app_version[32];
 extern unsigned char mcu_version[32];
+extern unsigned char vcu_version[32];
 
 extern unsigned char air_state[20];
 extern unsigned char door_state[4];
@@ -93,13 +99,19 @@ static unsigned long long remote_ctrl_enable_request_id;
 static unsigned long long air_ctrl_request_id;
 static unsigned long long air_temperature_ctrl_request_id;
 //static unsigned long long char_ctrl_request_id;
-//static unsigned long long electromotor_ctrl_request_id;
+static unsigned long long electromotor_ctrl_request_id;
 static unsigned long long door_lock_request_id;
 static unsigned long long truck_door_lock_request_id;
 //static unsigned long long panel_protection_request_id;
 
 static unsigned long long door_control_valide;
 static unsigned long long air_control_valide;
+//static unsigned long long file_upload_id;
+
+unsigned int upload_type = 0;
+unsigned int OTA_upgrade_type = 0;
+static int controlDelayTime = 0;
+static int latestControlTime = 0;
 ql_data_call_info_s g_call_info;
 char dev_name[30];
 char firstlyDns[128]={0};
@@ -419,6 +431,14 @@ static void deal_get_version(int sock,unsigned char *buf)
 	
 	Log(__FUNCTION__,"firewareVersion = %s\n",firewareVersion);
 
+	TermVersionUpload *VCU_version = termVersionUploadData.add_termversionupload();
+	VCU_version->set_termtype(6);
+	VCU_version->set_manufacturerid("LUCHANG");
+	VCU_version->set_hardwareversion("EC20_YEMA_TBOX_V0.1");
+	VCU_version->set_firmwareversion((char*)vcu_version);
+	
+	Log(__FUNCTION__,"vcu_version = %s\n",vcu_version);
+
 	termVersionUploadData.SerializeToString(&msg);
 
 	get_current_date(&date);
@@ -501,6 +521,37 @@ static void deal_net_set(int sock,unsigned char *buf)
 		param.heart_period= ctrlParamMessage.config_info().heartbeat_cycle();
 		Log(__FUNCTION__,"param.heart_period=%d",param.heart_period);
 	}
+
+	if(ctrlParamMessage.config_info().has_mode_type())
+	{
+		printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n");
+		int mode = ctrlParamMessage.config_info().mode_type();
+		printf("mode type = %d\n",mode);
+		if(mode == CAN_FILE_MODE || mode == TBOX_FILE_MODE){
+			if(ctrlParamMessage.config_info().has_mode_begin_time() && ctrlParamMessage.config_info().has_mode_time_quantum())
+			{
+				uploadFileParam.fileMode = mode;
+				uploadFileParam.startTime = ctrlParamMessage.config_info().mode_begin_time();
+				uploadFileParam.endTime = uploadFileParam.startTime + ctrlParamMessage.config_info().mode_time_quantum()*60;
+				memset(uploadFileParam.fileName,0,sizeof(uploadFileParam.fileName));
+				sprintf(uploadFileParam.fileName,"can_%d",uploadFileParam.startTime);
+				printf("%d %d %s\n",uploadFileParam.startTime,ctrlParamMessage.config_info().mode_time_quantum(),uploadFileParam.fileName);
+			}
+
+			if(mode == CAN_FILE_MODE){
+//				setCanMessegePath(uploadFileParam.startTime);
+//				start_can_messege_upload(uploadFileParam.endTime-uploadFileParam.startTime);
+//				get_file_upload_url();	//Ë∞ÉËØïÊó∂‰ΩøÁî® Áõ¥Êé•Âú®tbox‰∏äÂàõÂª∫‰∏Ä‰∏™Êñá‰ª∂ ‰∏çÁî®mcu‰∏ä‰º†canÊä•Êñá
+			}
+
+			if(mode == TBOX_FILE_MODE){
+
+			}
+		}
+		//file_upload_id = ctrlParamMessage.request_id();
+		runModeType = mode;
+	}
+	
 	if(ctrlParamMessage.config_info().has_tbox_usb_net_switch())
 	{
 		param.usbnet= ctrlParamMessage.config_info().tbox_usb_net_switch();
@@ -540,12 +591,12 @@ bool down_load_verify(char* sign_base64,const char* download_path)
 	len =  base64_decode(sign_base64,strlen(sign_base64),sign_enc);
 	RSA_pub_decrypt("/home/root/MX_pub.key",(unsigned char*)sign_enc,sign_dec);
 	
-	Log_print(__FUNCTION__,"hash:");
+	Log(__FUNCTION__,"hash:");
     for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
     {
         Log_print("%X",sign_dec[len-32+i]);
     }
-	Log_print(__FUNCTION__,"\n");
+	Log(__FUNCTION__,"\n");
 
 	//—È÷§«©√˚
 	if(!memcmp(hash,sign_dec+len-32,32))
@@ -601,7 +652,7 @@ static void deal_upgrade(int sock,unsigned char *buf)
 		memcpy(upgrade_param.mcu_upgrade_path,ctrlFotaData.upgradepath().c_str(),ctrlFotaData.upgradepath().length());
 		memcpy(upgrade_param.mcu_upgrade_sign,ctrlFotaData.sign().c_str(),ctrlFotaData.sign().length());
 	}
-
+/*
 	if(ctrlFotaData.termtype() == 6){
 		upgrade_param.vcu_upgrade_status = 1;
 		memset(upgrade_param.vcu_upgrade_path,0,sizeof(upgrade_param.vcu_upgrade_path));
@@ -626,6 +677,22 @@ static void deal_upgrade(int sock,unsigned char *buf)
 		memcpy(upgrade_param.bms_upgrade_sign,ctrlFotaData.sign().c_str(),ctrlFotaData.sign().length());
 	}
 
+	if(ctrlFotaData.termtype() == 9){
+		upgrade_param.dcdc_upgrade_status = 1;
+		memset(upgrade_param.dcdc_upgrade_path,0,sizeof(upgrade_param.dcdc_upgrade_path));
+		memset(upgrade_param.dcdc_upgrade_sign,0,sizeof(upgrade_param.dcdc_upgrade_sign));
+		memcpy(upgrade_param.dcdc_upgrade_path,ctrlFotaData.upgradepath().c_str(),ctrlFotaData.upgradepath().length());
+		memcpy(upgrade_param.dcdc_upgrade_sign,ctrlFotaData.sign().c_str(),ctrlFotaData.sign().length());
+	}
+
+	if(ctrlFotaData.termtype() == 10){
+		upgrade_param.obc_upgrade_status = 1;
+		memset(upgrade_param.obc_upgrade_path,0,sizeof(upgrade_param.obc_upgrade_path));
+		memset(upgrade_param.obc_upgrade_sign,0,sizeof(upgrade_param.obc_upgrade_sign));
+		memcpy(upgrade_param.obc_upgrade_path,ctrlFotaData.upgradepath().c_str(),ctrlFotaData.upgradepath().length());
+		memcpy(upgrade_param.obc_upgrade_sign,ctrlFotaData.sign().c_str(),ctrlFotaData.sign().length());
+	}
+*/
 	init_save_upgrade();
 	system("sync");
 
@@ -677,8 +744,10 @@ static void deal_upgrade(int sock,unsigned char *buf)
 		case 4:
 			if(mcu_upgrade == false)
 			{
+				Log(__FUNCTION__,"tbox app upgrade\n");
 				system("mv /home/root/tbox_decrypt /home/root/mcu.bin");
 				system("sync");
+				//OTA_upgrade_type = 4;
 				//mcu_upgrade = true;
 			}
 			break;
@@ -686,14 +755,19 @@ static void deal_upgrade(int sock,unsigned char *buf)
 		case 6:
 			if(mcu_upgrade == false)
 			{
+			
+			Log(__FUNCTION__,"vcu upgrade\n");
 				system("mv /home/root/tbox_decrypt /home/root/vcu.bin");
-				system("sync");
-				//mcu_upgrade = true;
+				system("sync");	
+				OTA_upgrade_type = 6;
+				mcu_upgrade = true;
 			}
 			break;
 		case 7:
 			if(mcu_upgrade == false)
 			{
+			
+			Log(__FUNCTION__,"mcu upgrade\n");
 				system("mv /home/root/tbox_decrypt /home/root/mcu_mcu.bin");
 				system("sync");
 				//mcu_upgrade = true;
@@ -703,9 +777,36 @@ static void deal_upgrade(int sock,unsigned char *buf)
 		case 8:
 			if(mcu_upgrade == false)
 			{
+			
+			Log(__FUNCTION__,"bms upgrade\n");
 				system("mv /home/root/tbox_decrypt /home/root/bms.bin");
 				system("sync");
 				//mcu_upgrade = true;
+			}
+			break;
+		case 9:
+			if(mcu_upgrade == false)
+			{
+			
+			Log(__FUNCTION__,"dcdc upgrade\n");
+				system("mv /home/root/tbox_decrypt /home/root/dcdc.bin");
+				system("sync");
+				OTA_upgrade_type = 9;
+				mcu_upgrade = true;
+
+			}
+			break;
+
+		case 10:
+			if(mcu_upgrade == false)
+			{
+			
+			Log(__FUNCTION__,"obc upgrade\n");
+				system("mv /home/root/tbox_decrypt /home/root/obc.bin");
+				system("sync");
+				OTA_upgrade_type = 10;
+				mcu_upgrade = true;
+
 			}
 			break;
 		}
@@ -745,6 +846,13 @@ void get_all_status()
 	airStateInfo.set_wind_level(get_air_conditon(ALL_VEHICLE)->windLevel);
 	ctrlAirMessage.set_allocated_air_state_info(&airStateInfo);
 	allStateMessage.set_allocated_air_message(&ctrlAirMessage);
+
+	CtrlEkeyMessage ctrlEkeyMessage;
+	EkeyStateInfo ekeyStateInfo;
+	ekeyStateInfo.set_remote_enable(get_extend_vechicle_param()->remote_enable_status);
+	ctrlEkeyMessage.set_allocated_ekey_state_info(&ekeyStateInfo);
+	allStateMessage.set_allocated_ekey_message(&ctrlEkeyMessage);
+	Log(__FUNCTION__,"ekey status = %x %x %x %x",get_extend_vechicle_param()->remote_enable_status);
 
 	CtrlDoorsMessage ctrlDoorsMessage;
 	DoorsStateInfo doorsStateInfo;
@@ -808,6 +916,7 @@ void get_all_status()
 	lightingMessage.set_fog_light(get_extend_vechicle_param()->fog_light_status);
 	lightingMessage.set_left_cornering_lamp(get_extend_vechicle_param()->left_cornering_lamp);
 	lightingMessage.set_right_cornering_lamp(get_extend_vechicle_param()->right_cornering_lamp);
+	lightingMessage.set_clearance_light(get_extend_vechicle_param()->markLamp);
 	allStateMessage.set_allocated_lighting_state(&lightingMessage);
 
 	StateBatteryMessage batteryMessege;
@@ -852,6 +961,9 @@ void get_all_status()
 
 	ctrlAirMessage.release_air_state_info();
 	allStateMessage.release_air_message();
+
+	ctrlEkeyMessage.release_ekey_state_info();
+	allStateMessage.release_ekey_message();
 	
 	ctrlDoorsMessage.release_doors_state_info();
 	allStateMessage.release_doors_message();
@@ -887,6 +999,90 @@ void get_all_status()
 	allStateMessage.release_common_param();
 }
 
+void confirm_file_upload(char *url){
+	date_time date; 
+	std::string msg;
+	unsigned char data[1024] = {0};
+	int offset = 0;
+	get_current_date(&date);
+	head_pack(data,&offset,DATA_FILE_UPLOAD,DATA_CMD,NO_ENCRYPT);
+	date_pack(data,date,&offset);
+	char *tUrl = (char*)url;
+
+	DeviceConfirmUploadMessage confirmUploadMessage;
+	confirmUploadMessage.set_url(tUrl);
+
+	confirmUploadMessage.SerializeToString(&msg);
+
+	memcpy(data+offset,msg.data(),msg.length());
+	for(size_t i=0;i<msg.length();++i){
+		Log_print("[%x] ",data[offset+i]);
+	}
+	Log(__FUNCTION__,"\n");
+	offset += msg.length();
+	Log_print(__FUNCTION__,"net ack");
+	tcp_heart_send(sock_cli,data,offset);
+}
+
+void get_file_upload_url(){
+	date_time date;	
+	std::string msg;
+	unsigned char data[1024] = {0};
+	int offset = 0;
+	get_current_date(&date);
+	head_pack(data,&offset,DATA_FILE_UPLOAD,DATA_CMD,NO_ENCRYPT);
+	date_pack(data,date,&offset);
+	data[offset++] = 0x01;
+
+	DeviceRequsetUploadMessage requestUploadMessage;
+	requestUploadMessage.set_time(uploadFileParam.startTime);
+	requestUploadMessage.set_file_name(uploadFileParam.fileName);
+	//requestUploadMessage.set_request_id(file_upload_id);
+	requestUploadMessage.SerializeToString(&msg);
+
+	memcpy(data+offset,msg.data(),msg.length());
+	for(size_t i=0;i<msg.length();++i){
+		Log_print("[%x] ",data[offset+i]);
+	}
+	Log(__FUNCTION__,"\n");
+	offset += msg.length();
+	Log_print(__FUNCTION__,"\n");
+	tcp_heart_send(sock_cli,data,offset);
+}
+
+void uploadFile(char *buf){
+	//date_time date;
+	//unsigned char data[512] = {0};
+	//int offset = 0;
+	DeviceResponseUploadMessage responseUploadMessage;
+	ConfigInfo configInfo;
+	//int str_len = 0;
+	int len = (buf[DATA_LENGTH_ADDR]<<8)+buf[DATA_LENGTH_ADDR + 1];
+	responseUploadMessage.ParseFromArray(buf+31,len - 6);
+
+	if(responseUploadMessage.has_resp_code()){
+		if(responseUploadMessage.resp_code() == 100){			
+			std::string url = responseUploadMessage.upload_url();
+			printf("%s\n",url.c_str());
+			char urlStr[100] = {0};
+			memcpy(urlStr,url.c_str(),url.length());
+			//uploadCanFile(urlStr,confirm_file_upload);
+		}
+	}
+}
+
+void tboxUploadFileDeal(char *buf){	
+	switch(buf[CHECK_CMD_NUM_ADDR]){
+		case 0x01:
+			uploadFile(buf);
+			break;
+		case 0x02:
+			//ÊúçÂä°Âô®Ê†πÊçÆÊñá‰ª∂‰∏ä‰º†ÊÉÖÂÜµ‰∏ãÂèëÁ°ÆËÆ§Êåá‰ª§
+		default:
+			break;
+	}
+}
+
 void ack_engine_start(){
 	if(control_type == engine_start_type){
 		std::string msg;
@@ -918,12 +1114,12 @@ void ack_engine_start(){
 		date_pack(data,date,&offset);
 		data[offset++] = 0x85;
 		memcpy(data+offset,msg.data(),msg.length());
-		for(size_t i=0;i<msg.length();++i){
-			Log_print("[%x] ",data[offset+i]);
-		}
-		Log_print("\n");
+		//for(size_t i=0;i<msg.length();++i){
+		//	Log_print("[%x] ",data[offset+i]);
+		//}
+		//Log_print("\n");
 		offset += msg.length();
-		Log_print(__FUNCTION__,"engine net ack");
+		Log(__FUNCTION__,"engine net ack");
 		tcp_heart_send(sock,data,offset);
 
 		ctrlEngineMessege.release_common_param();
@@ -931,6 +1127,53 @@ void ack_engine_start(){
 		control_type = no_control_type;
 	}
 }
+
+
+void ack_electromotor_start(){
+	if(control_type == electromotor_type){
+		std::string msg;
+		int sock = sock_cli;
+		date_time date;
+		unsigned char data[1024] = {0};
+		int offset = 0;
+		CtrlElectromotorMessage ctrlElectromotorMessage;
+		CtrlCommonInfo ctrlCommonInfo;
+		CtrlCommonParamTbox ctrlCommonParamTbox;
+
+		ctrlCommonInfo.set_valid(0x1);
+		if(get_extend_vechicle_param()->electrify_status == 0xff){
+			ctrlCommonInfo.set_result(0x1);
+			ctrlCommonInfo.set_state(0x1);
+		}else{
+			ctrlCommonInfo.set_result(0x0);
+			int status = get_extend_vechicle_param()->electrify_status;
+			ctrlCommonInfo.set_state(status);
+		}
+		
+		ctrlCommonParamTbox.set_request_id(electromotor_ctrl_request_id);
+		ctrlElectromotorMessage.set_allocated_electromotor_ctrl_info(&ctrlCommonInfo);
+		ctrlElectromotorMessage.set_allocated_common_param(&ctrlCommonParamTbox);
+		ctrlElectromotorMessage.SerializeToString(&msg);
+		offset = 0;
+		get_current_date(&date);
+		head_pack(data,&offset,DATA_CMD_CONTROL,DATA_SUCCESS,NO_ENCRYPT);
+		date_pack(data,date,&offset);
+		data[offset++] = 0x8A;
+		memcpy(data+offset,msg.data(),msg.length());
+		//for(size_t i=0;i<msg.length();++i){
+		//	Log_print("[%x] ",data[offset+i]);
+		//}
+		//Log_print("\n");
+		offset += msg.length();
+		Log(__FUNCTION__,"electronotor net ack");
+		tcp_heart_send(sock,data,offset);
+
+		ctrlElectromotorMessage.release_common_param();
+		ctrlElectromotorMessage.release_electromotor_ctrl_info();
+		control_type = no_control_type;
+	}
+}
+
 /*
 void ack_charge_start(){
 	if(control_type == charge_start_type){
@@ -988,12 +1231,12 @@ void ack_remote_ctrl_enable(){
 		date_pack(data,date,&offset);
 		data[offset++] = 0x87;
 		memcpy(data+offset,msg.data(),msg.length());
+		Log(__FUNCTION__,"remote enable net ack");
 		for(size_t i=0;i<msg.length();++i){
 			Log_print("[%x] ",data[offset+i]);
 		}
 		Log_print("\n");
 		offset += msg.length();
-		Log_print(__FUNCTION__,"remote enable net ack");
 		tcp_heart_send(sock,data,offset);
 
 		ctrlEkeyMessege.release_ekey_ctrl_info();
@@ -1026,12 +1269,13 @@ void ack_find_car(){
 		date_pack(data,date,&offset);
 		data[offset++] = 0x82;
 		memcpy(data+offset,msg.data(),msg.length());
+		
+		Log(__FUNCTION__,"remote enable net ack");
 		for(size_t i=0;i<msg.length();++i){
 			Log_print("[%x] ",data[offset+i]);
 		}
 		Log_print("\n");
 		offset += msg.length();
-		Log_print(__FUNCTION__,"remote enable net ack");
 		tcp_heart_send(sock,data,offset);
 
 		ctrlLightHornMessage.release_lighthorn_ctrl_info();
@@ -1086,12 +1330,23 @@ void ack_air_ctrl(){
 		unsigned char data[1024] = {0};
 		int offset = 0;
 		CtrlAirMessage ctrlAirMessage;
+		AirStateInfo airStateInfo;
 		CtrlCommonInfo ctrlCommonInfo;
 		CtrlCommonParamTbox ctrlCommonParamTbox;
 		
 		ctrlCommonInfo.set_valid(air_control_valide);
 		ctrlCommonInfo.set_result(0);
+		
+		airStateInfo.set_ac(get_air_conditon(ALL_VEHICLE)->ac_status);
+		airStateInfo.set_after_defrosting(get_air_conditon(ALL_VEHICLE)->behind_defront_status);
+		airStateInfo.set_pre_defrosting(get_air_conditon(ALL_VEHICLE)->forward_defront_status);
+		airStateInfo.set_blower_mode(get_air_conditon(ALL_VEHICLE)->blow_model);
+		airStateInfo.set_cycle_mode(get_air_conditon(ALL_VEHICLE)->air_circulation_mode);
+		airStateInfo.set_ptc(get_air_conditon(ALL_VEHICLE)->heating_status);
+		airStateInfo.set_wind_level(get_air_conditon(ALL_VEHICLE)->windLevel);
+
 		ctrlCommonParamTbox.set_request_id(air_ctrl_request_id);
+		ctrlAirMessage.set_allocated_air_state_info(&airStateInfo);
 		ctrlAirMessage.set_allocated_air_ctrl_info(&ctrlCommonInfo);
 		ctrlAirMessage.set_allocated_common_param(&ctrlCommonParamTbox);
 		ctrlAirMessage.SerializeToString(&msg);
@@ -1101,14 +1356,15 @@ void ack_air_ctrl(){
 		date_pack(data,date,&offset);
 		data[offset++] = 0x89;
 		memcpy(data+offset,msg.data(),msg.length());
+		Log(__FUNCTION__,"air net ack");	
 		for(size_t i=0;i<msg.length();++i){
 			Log_print("[%x] ",data[offset+i]);
 		}
 		Log_print("\n");
 		offset += msg.length();
-		Log_print(__FUNCTION__,"air net ack");
 		tcp_heart_send(sock,data,offset);
 
+		ctrlAirMessage.release_air_state_info();
 		ctrlAirMessage.release_air_ctrl_info();
 		ctrlAirMessage.release_common_param();
 		control_type = no_control_type;
@@ -1138,12 +1394,13 @@ void ack_air_temperture_ctrl(){
 		date_pack(data,date,&offset);
 		data[offset++] = 0x8F;
 		memcpy(data+offset,msg.data(),msg.length());
+		
+		Log(__FUNCTION__,"air net ack");
 		for(size_t i=0;i<msg.length();++i){
 			Log_print("[%x] ",data[offset+i]);
 		}
 		Log_print("\n");
 		offset += msg.length();
-		Log_print(__FUNCTION__,"air net ack");
 		tcp_heart_send(sock,data,offset);
 
 		ctrlAirTemperatureMessage.release_air_temperature_ctrl_info();
@@ -1156,46 +1413,71 @@ void ack_char_start(){
 	
 }
 
-void ack_door_start(){
-	if(control_type == door_lock_type){
-		std::string msg;
-		int sock = sock_cli;
-		date_time date;
-		unsigned char data[1024] = {0};
-		int offset = 0;
+void *ack_door_start_delay(void *param){
+	sleep(1);
+	std::string msg;
+	int sock = sock_cli;
+	date_time date;
+	unsigned char data[1024] = {0};
+	int offset = 0;
 
-		CtrlDoorsMessage ctrlDoorsMessage;
-		CtrlCommonInfo ctrlCommonInfo;
-		CtrlCommonParamTbox ctrlCommonParamTbox;
+	CtrlDoorsMessage ctrlDoorsMessage;
+	CtrlCommonInfo ctrlCommonInfo;
+	DoorsStateInfo doorsStateInfo;
+	CtrlCommonParamTbox ctrlCommonParamTbox;
 
-		ctrlCommonInfo.set_valid(door_control_valide);
-		if(door_control_valide & get_extend_vechicle_param()->door_lock_exception_status){
-			ctrlCommonInfo.set_result(door_control_valide);
-		}else{
-			ctrlCommonInfo.set_result(0x0);
+	ctrlCommonInfo.set_valid(door_control_valide);
+	if(door_control_valide & get_extend_vechicle_param()->door_lock_exception_status){
+		ctrlCommonInfo.set_result(door_control_valide);		
+		Log(__FUNCTION__,"door valide = %d\n",door_control_valide);
+	}else{
+		ctrlCommonInfo.set_result(0x0);
+	}
+	
+	Log(__FUNCTION__,"door status = %d\n",get_extend_vechicle_param()->door_lock_status);
+	Log(__FUNCTION__,"door  on status = %d\n",get_extend_vechicle_param()->door_status);
+	Log(__FUNCTION__,"door exceprtion status = %d\n",get_extend_vechicle_param()->door_exceprtion_status);
+
+	ctrlCommonInfo.set_state(get_extend_vechicle_param()->door_lock_status&0x1f);
+	doorsStateInfo.set_door_on_off((get_extend_vechicle_param()->door_status)&0xf);
+	doorsStateInfo.set_door_state_exception((get_extend_vechicle_param()->door_exceprtion_status)&0xf);
+	doorsStateInfo.set_lock_on_off((get_extend_vechicle_param()->door_lock_status)&0xf);
+	doorsStateInfo.set_lock_state_exception((get_extend_vechicle_param()->door_lock_exception_status)&0xf);
+	ctrlCommonParamTbox.set_request_id(door_lock_request_id);
+	ctrlDoorsMessage.set_allocated_doors_ctrl_info(&ctrlCommonInfo);
+	ctrlDoorsMessage.set_allocated_doors_state_info(&doorsStateInfo);
+	ctrlDoorsMessage.set_allocated_common_param(&ctrlCommonParamTbox);
+	ctrlDoorsMessage.SerializeToString(&msg);
+	offset = 0;
+	get_current_date(&date);
+	head_pack(data,&offset,DATA_CMD_CONTROL,DATA_SUCCESS,NO_ENCRYPT);
+	date_pack(data,date,&offset);
+	data[offset++] = 0x8B;
+	memcpy(data+offset,msg.data(),msg.length());
+	Log(__FUNCTION__,"door net ack");
+	for(size_t i=0;i<msg.length();++i){
+		Log_print("[%x] ",data[offset+i]);
+	}
+	Log_print("\n");
+	offset += msg.length();
+	tcp_heart_send(sock,data,offset);
+
+	ctrlDoorsMessage.release_doors_ctrl_info();
+	ctrlDoorsMessage.release_doors_state_info();
+	ctrlDoorsMessage.release_common_param();
+
+	return NULL;
+}
+
+void ack_door_start(){	
+	if(control_type == door_lock_type){			
+		pthread_t control_ack_t;
+		Log(__FUNCTION__,"&&&&&&&&&&  will input ack door start!\n");
+		int ret = pthread_create(&control_ack_t,NULL,ack_door_start_delay,NULL);
+		if(ret != 0)
+		{
+			Log(__FUNCTION__,"ack control thread failed!\n");
 		}
-
-		ctrlCommonInfo.set_state(get_extend_vechicle_param()->door_lock_status&0x0f);	
-		ctrlCommonParamTbox.set_request_id(door_lock_request_id);
-		ctrlDoorsMessage.set_allocated_doors_ctrl_info(&ctrlCommonInfo);
-		ctrlDoorsMessage.set_allocated_common_param(&ctrlCommonParamTbox);
-		ctrlDoorsMessage.SerializeToString(&msg);
-		offset = 0;
-		get_current_date(&date);
-		head_pack(data,&offset,DATA_CMD_CONTROL,DATA_SUCCESS,NO_ENCRYPT);
-		date_pack(data,date,&offset);
-		data[offset++] = 0x8B;
-		memcpy(data+offset,msg.data(),msg.length());
-		for(size_t i=0;i<msg.length();++i){
-			Log_print("[%x] ",data[offset+i]);
-		}
-		Log_print("\n");
-		offset += msg.length();
-		Log_print(__FUNCTION__,"door net ack");
-		tcp_heart_send(sock,data,offset);
-
-		ctrlDoorsMessage.release_doors_ctrl_info();
-		ctrlDoorsMessage.release_common_param();
 		control_type = no_control_type;
 	}
 }
@@ -1234,12 +1516,12 @@ void ack_truck_lock_ctrl(){
 		date_pack(data,date,&offset);
 		data[offset++] = 0x90;
 		memcpy(data+offset,msg.data(),msg.length());
+		Log(__FUNCTION__,"door net ack");
 		for(size_t i=0;i<msg.length();++i){
 			Log_print("[%x] ",data[offset+i]);
 		}
 		Log_print("\n");
 		offset += msg.length();
-		Log_print(__FUNCTION__,"door net ack");
 		tcp_heart_send(sock,data,offset);
 
 		ctrlTrunkDoorsMessage.release_common_param();
@@ -1320,6 +1602,7 @@ int find_car(unsigned char *buf)
 void ack_control()
 {
 	ack_engine_start();
+	ack_electromotor_start();
 	ack_door_start();
 	ack_air_ctrl();
 	ack_remote_ctrl_enable();
@@ -1486,13 +1769,12 @@ void windows_ctrl(int sock,unsigned char *buf)
 */
 int air_ctrl(unsigned char *buf)
 {
-	int ret,delayTime;
+	int delayTime;
 	int len = (buf[DATA_LENGTH_ADDR]<<8)+buf[DATA_LENGTH_ADDR + 1];
 	CtrlAirMessage ctrlAirMessage;
 	CtrlCommonParamTbox ctrlCommonParamTbox;
 	CtrlCommonInfo ctrlCommonInfo;
-	ret = ctrlAirMessage.ParseFromArray(buf+31,len - 7);
-	Log_print(__FUNCTION__,"ret = %d\n",ret);
+	ctrlAirMessage.ParseFromArray(buf+31,len - 7);
 	
 	if(ctrlAirMessage.has_common_param() && ctrlAirMessage.has_air_ctrl_info()){
 		ctrlCommonParamTbox = ctrlAirMessage.common_param();
@@ -1557,13 +1839,12 @@ int air_ctrl(unsigned char *buf)
 }
 
 int air_temperature_ctrl(unsigned char *buf){
-	int ret,delayTime;
+	int delayTime;
 	int len = (buf[DATA_LENGTH_ADDR]<<8)+buf[DATA_LENGTH_ADDR + 1];
 	CtrlAirTemperatureMessage ctrlAirTemperatureMessage;
 	CtrlCommonParamTbox ctrlCommonParamTbox;
 	AirTemperatureCtrlInfo airTemperatureCtrlInfo;
-	ret = ctrlAirTemperatureMessage.ParseFromArray(buf+31,len - 7);
-	Log_print(__FUNCTION__,"ret = %d\n",ret);
+	ctrlAirTemperatureMessage.ParseFromArray(buf+31,len - 7);
 	
 	if(ctrlAirTemperatureMessage.has_common_param() && ctrlAirTemperatureMessage.has_air_temperature_ctrl_info()){
 		ctrlCommonParamTbox = ctrlAirTemperatureMessage.common_param();
@@ -1613,39 +1894,50 @@ void char_ctrl(int sock,unsigned char *buf)
 	char_ctrl_request_id = ctrlChairMessege.request_id();	
 	control_type = char_ctrl_type;
 }
-
-void electromotor_ctrl(int sock,unsigned char *buf){
-	std::string msg;
-	date_time date;
-	unsigned char data[1024] = {0};
-	int offset = 0;
-	bool ret;
+*/
+int electromotor_ctrl(unsigned char *buf){
+	int ret;
 	int len = (buf[DATA_LENGTH_ADDR]<<8)+buf[DATA_LENGTH_ADDR + 1];
-
 	CtrlElectromotorMessage ctrlElectromotorMessage;
+	CtrlCommonParamTbox ctrlCommonParamTbox;
+	CtrlCommonInfo ctrlCommonInfo;
+	int delayTime = 0;
+
 	ret = ctrlElectromotorMessage.ParseFromArray(buf+31,len-7);				
 	Log_print(__FUNCTION__,"ret = %d\n",ret);
-	if (ctrlElectromotorMessage.has_state())
+	if (ctrlElectromotorMessage.has_common_param() && ctrlElectromotorMessage.has_electromotor_ctrl_info());
 	{
-		electromotorStatus = ctrlElectromotorMessage.state();	
-		Log_print(__FUNCTION__,"electromotorStatus= %d \n",electromotorStatus);
-		electromotor_ctrl_cmd(electromotorStatus);
+		ctrlCommonParamTbox = ctrlElectromotorMessage.common_param();
+		ctrlCommonInfo = ctrlElectromotorMessage.electromotor_ctrl_info();
+
+		if (ctrlCommonInfo.has_valid() && ctrlCommonInfo.has_state())
+		{
+			electromotor_ctrl_cmd(ctrlCommonInfo.state());	
+		}
+
+		if(ctrlCommonParamTbox.has_request_id()){
+			electromotor_ctrl_request_id = ctrlCommonParamTbox.request_id();
+		}
+
+		if(ctrlCommonParamTbox.has_delay_time()){
+			delayTime = ctrlCommonParamTbox.delay_time();			
+		}
+
+		Log_print(__FUNCTION__,"electromotorStatus= %d \n",ctrlCommonInfo.state());
 	}
-	electromotor_ctrl_request_id = ctrlElectromotorMessage.request_id();
 	
-	control_type = electromotor_type;	
+	control_type = electromotor_type;
+	return delayTime;
 }
-*/
+
 int door_lock_ctrl(unsigned char *buf){
-	int ret;
 	
 	int len = (buf[DATA_LENGTH_ADDR]<<8)+buf[DATA_LENGTH_ADDR + 1];
 	CtrlDoorsMessage ctrlDoorsMessege;
 	CtrlCommonParamTbox ctrlCommonParamTbox;
 	CtrlCommonInfo ctrlCommonInfo;
 	int delayTime = 0;
-	ret = ctrlDoorsMessege.ParseFromArray(buf+31,len-7);		
-	Log(__FUNCTION__,"ret = %d\n",ret);
+	ctrlDoorsMessege.ParseFromArray(buf+31,len-7);		
 	if (ctrlDoorsMessege.has_common_param() && ctrlDoorsMessege.has_doors_ctrl_info())
 	{
 		ctrlCommonParamTbox = ctrlDoorsMessege.common_param();
@@ -1675,14 +1967,13 @@ int door_lock_ctrl(unsigned char *buf){
 }
 
 int trunk_lock_ctrl(unsigned char *buf){
-	int ret,delayTime;
+	int delayTime;
 	
 	int len = (buf[DATA_LENGTH_ADDR]<<8)+buf[DATA_LENGTH_ADDR + 1];	
 	CtrlTrunkDoorsMessage ctrlTrunkDoorsMessage;
 	CtrlCommonParamTbox ctrlCommonParamTbox;
 	CtrlCommonInfo ctrlCommonInfo;
-	ret = ctrlTrunkDoorsMessage.ParseFromArray(buf+31,len-7);
-	Log(__FUNCTION__,"ret = %d\n",ret);
+	 ctrlTrunkDoorsMessage.ParseFromArray(buf+31,len-7);
 	if (ctrlTrunkDoorsMessage.has_common_param() && ctrlTrunkDoorsMessage.has_trunk_doors_ctrl_info()){
 		ctrlCommonParamTbox = ctrlTrunkDoorsMessage.common_param();
 		ctrlCommonInfo = ctrlTrunkDoorsMessage.trunk_doors_ctrl_info();
@@ -1705,10 +1996,18 @@ int trunk_lock_ctrl(unsigned char *buf){
 }
 
 void *wait_ack_control(void *paramTemp){
-	int *delayTime = (int *)paramTemp;
-	sleep(*delayTime);	
-	Log(__FUNCTION__,"ack wait %d\n",control_type);
-	ack_control();
+	//int *delayTime = (int *)paramTemp;
+	int nowTime,delayTime = controlDelayTime;
+	sleep(controlDelayTime);	
+	Log(__FUNCTION__,"ack wait control type =  %d,delay time = %d\n",control_type,controlDelayTime);
+	struct timeval fps;
+	gettimeofday(&fps,NULL);
+	nowTime = fps.tv_sec;
+	if(nowTime - latestControlTime > delayTime -2){	
+		ack_control();
+	}else{
+		Log(__FUNCTION__,"pre control time out\n");
+	}
 
 	return (void*)0;
 }
@@ -1720,7 +2019,7 @@ static void deal_control(int sock,unsigned char *buf)
 	date_time date;
 	unsigned char data[1024] = {0};
 	int offset = 0;
-	int delayTime = 0;
+	controlDelayTime = 0;
 	//bool ret;
 	//struct mcu_msg_stru msg;
 	//int len = (buf[DATA_LENGTH_ADDR]<<8)+buf[DATA_LENGTH_ADDR + 1];
@@ -1753,28 +2052,28 @@ static void deal_control(int sock,unsigned char *buf)
 			tcp_heart_send(sock,data,offset);	
 			break;		
 		case 0x82://—∞≥µ
-			delayTime = find_car(buf);
+			controlDelayTime = find_car(buf);
 			break;
 		case 0x85://∑¢∂Øª˙‘∂≥Ã∆Ù∂Ø-Õ£÷π
-			delayTime = engine_start(buf);
+			controlDelayTime = engine_start(buf);
 			break;
 		case 0x86://≥‰µÁ∆Ù∂Ø-Õ£÷π
 			//charge_start(sock,buf);
 			break;
 		case 0x87://‘∂≥Ãøÿ÷∆ πƒ‹
-			delayTime = remote_ctrl_enable(buf);
+			controlDelayTime = remote_ctrl_enable(buf);
 			break;
 		case 0x88://≥µ¥∞øÿ÷∆
 			//windows_ctrl(sock,buf);
 			break;
 		case 0x89://ø’µ˜øÿ÷∆
-			delayTime = air_ctrl(buf);
+			controlDelayTime = air_ctrl(buf);
 			break;
 		case 0x8A:
-			//electromotor_ctrl(sock,buf);
+			controlDelayTime = electromotor_ctrl(buf);
 			break;
 		case 0x8B:
-			delayTime = door_lock_ctrl(buf);
+			controlDelayTime = door_lock_ctrl(buf);
 			break;
 		case 0x8C://◊˘“Œøÿ÷∆
 			//char_ctrl(sock,buf);
@@ -1786,16 +2085,20 @@ static void deal_control(int sock,unsigned char *buf)
 			get_all_status();
 			break;
 		case 0x8F:
-			delayTime = air_temperature_ctrl(buf);
+			controlDelayTime = air_temperature_ctrl(buf);
 			break;
 		case 0x90://»´≤ø◊¥Ã¨≤È—Ø
-			delayTime = trunk_lock_ctrl(buf);
+			controlDelayTime = trunk_lock_ctrl(buf);
 			break;
 	}
 
 	if(buf[CHECK_CMD_NUM_ADDR]!=06 || buf[CHECK_CMD_NUM_ADDR]!=07 ||buf[CHECK_CMD_NUM_ADDR]!=0xa0){
-		pthread_t control_ack_t;
-		int ret = pthread_create(&control_ack_t,NULL,wait_ack_control,(void*)&delayTime);
+		pthread_t control_ack_t;		
+		Log(__FUNCTION__,"ack will delay time = %d!\n",controlDelayTime);
+		struct timeval fps;
+		gettimeofday(&fps,NULL);
+		latestControlTime = fps.tv_sec;
+		int ret = pthread_create(&control_ack_t,NULL,wait_ack_control,NULL);
 		if(ret != 0)
 		{
 			Log(__FUNCTION__,"ack control thread failed!\n");
@@ -1809,13 +2112,13 @@ static void deal_cmd(unsigned char *buf,int clt_sock)
 
 	if(buf[0] == 0x23 && buf[1] == 0x23)
 	{
-		Log_print(__FUNCTION__,"cmd = %X\n",buf[CMD_FLAG_ADDR]);
+		Log(__FUNCTION__,"cmd = %X\n",buf[CMD_FLAG_ADDR]);
 		if((buf[CMD_FLAG_ADDR] == DATA_CAR_MSG_SEND || buf[CMD_FLAG_ADDR] == DATA_CAR_MSG_REP) 
 			&& buf[ACK_FLAG_ADDR] == DATA_ERROR)
 		{
 			sprintf((char*)recv_date,"%02d-%02d-%02d %02d:%02d:%02d",
 					buf[24],buf[25],buf[26],buf[27],buf[28],buf[29]);
-			Log_print(__FUNCTION__,"rcv date = %s",recv_date);
+			Log(__FUNCTION__,"rcv date = %s",recv_date);
 			//sql_mark_send_failed(recv_date);
 		}
 		else if(buf[CMD_FLAG_ADDR] == DATA_CMD_HEART)
@@ -1845,6 +2148,10 @@ static void deal_cmd(unsigned char *buf,int clt_sock)
 		{	
 			real_wakeup = true;
 			deal_control(clt_sock,buf);
+		}else if(buf[CMD_FLAG_ADDR] == DATA_FILE_UPLOAD){
+			uploadFile((char*)buf);
+		}else{
+
 		}
 	}
 }
@@ -1877,7 +2184,7 @@ bool tcp_send(int sock,unsigned char* buf,int len)
 	else
 	{
 		pthread_mutex_unlock(&tcp_mutex);	
-		Log_print(__FUNCTION__,"tcp send:");
+		Log(__FUNCTION__,"tcp send:\n");
 		for(i = 0;i < len;i++)
 		{
 			Log_print("%X ",buf[i]&0xFF);
@@ -1899,6 +2206,8 @@ bool tcp_heart_send(int sock,unsigned char* buf,int len)
 	}
 	int i,ret;
 #if 1
+	Log(__FUNCTION__,"tcp heart send:\n");
+
 	for(i = 0;i < len;i++)
 	{
 		Log_print("%X ",buf[i]);
@@ -1943,7 +2252,7 @@ bool tcp_heart_send(int sock,unsigned char* buf,int len)
 	else
 	{
 		pthread_mutex_unlock(&tcp_mutex);	
-		Log_print(__FUNCTION__,"tcp heart send:");
+		//Log(__FUNCTION__,"tcp heart send:");
 		return true;
 	}
 }
@@ -2228,7 +2537,7 @@ void SocketRecv_Proc(int socketFd)
 			timeout = param.tcp_rcv_timeout;
 			if(recvbuf[recvd - 1] == check_sum(recvbuf,recvd - 1))
 			{
-				Log_print(__FUNCTION__,"tcp rcv:");
+				Log(__FUNCTION__,"tcp rcv:");
 				for(i = 1;i < recvd + 1;i++)
 				{
 					Log_print("%X ",recvbuf[i - 1]);

@@ -33,6 +33,7 @@ extern "C"
 #include 	 "ql_oe.h"
 #include 	 "ql_eint.h"
 #include 	 "general.h"
+#include 	 "fileNetUpload.h"
 }
 
 #include "gpExtendQueue.h"
@@ -60,9 +61,9 @@ static pthread_t sleep_thread_t;
 bool real_wakeup = true;
 int voice_num = 0;
 extern int wakelock_fd;
-extern unsigned char mcu_version[5];
+extern unsigned char mcu_version[32];
 extern unsigned char hardware_version[32];
-
+extern unsigned char vcu_version[32];
 extern param_t param;
 extern int period;
 extern bool mcu_upgrade;
@@ -87,6 +88,7 @@ gl_data_t gl_data;
 bool recv_unfinish = false;
 gpExtendQueue *extendQueue;
 
+extern unsigned int OTA_upgrade_type;
 
 /*int check_log_size()
 {
@@ -378,7 +380,7 @@ int upgrade_mcu_send(unsigned char* buf,int len)
 	memcpy(temp,buf,len);
 	temp[len] = check_sum(buf + 2,len - 2);
 	int i;
-	Log_print(__FUNCTION__,"mcu send:");
+	Log(__FUNCTION__,":\n");
 	for(i = 0; i < len + 1;i++)
 	{
 		Log_print("[%X]",temp[i]);
@@ -468,13 +470,9 @@ void engine_start_cmd(unsigned char value)
 	}
 }
 
-void electromotor_ctrl_cmd(bool status){
+void electromotor_ctrl_cmd(unsigned char value){
 	unsigned char temp[8] = {0xFF,0xBB,0x82,0x04,0x03,0x01,0x02};
-	if(status){
-		temp[7] = 2;
-	}else{
-		temp[7] = 1;
-	}	
+	temp[7] = value;
 	if(mcu_ready)
 	{
 		mcu_send(temp,8);	
@@ -725,6 +723,23 @@ void air_set_temperature(unsigned char temperature){
 	}		
 }
 
+void start_can_messege_upload(unsigned int quantumTime){
+	unsigned char temp[12] = {0xFF,0xBB,0x88,0x08,0x03,0x01,0x02};
+	temp[7] = (quantumTime & 0xff000000)>>24;	
+	temp[8] = (quantumTime & 0x00ff0000)>>16;
+	temp[9] = (quantumTime & 0x0000ff00)>>8;
+	temp[10] = (quantumTime & 0x000000ff);
+	
+	if(mcu_ready)
+	{
+		mcu_send(temp,12);	
+	}
+	else
+	{
+		mcu_queue_send(temp,12);
+	}		
+}
+
 
 void check_vehicle_status(){
 	unsigned char temp0[8] = {0xFF,0xBB,0x82,0x04,0x02,0x01,0x10,0x01};
@@ -760,7 +775,7 @@ unsigned long get_file_size(const char *path)
 }  
 
 #define PACKAGE_SIZE	256
-void upgrade(void)
+void upgrade(int type)
 {
 	car_data.vehicle.car_status = CAR_STATUS_OFF;
 	int nread;
@@ -768,7 +783,20 @@ void upgrade(void)
 	
 	int i;
 	Log(__FUNCTION__,"uart thread start\n");
-	unsigned long file_size = get_file_size("/home/root/mcu.bin");
+	char ota_file_path[128] = {0};
+	if(type == 4)
+		strcpy(ota_file_path,"/home/root/mcu.bin");
+	if(type == 6)
+		strcpy(ota_file_path,"/home/root/vcu.bin");
+	if(type == 9)
+		strcpy(ota_file_path,"/home/root/dcdc.bin");
+	if(type == 10)
+		strcpy(ota_file_path,"/home/root/obc.bin");
+
+	
+	//unsigned long file_size = get_file_size("/home/root/mcu.bin");
+	
+	unsigned long file_size = get_file_size(ota_file_path);
 	Log(__FUNCTION__,"file_size = %ld\n",file_size);
 	short package_sum = file_size/PACKAGE_SIZE;
 	if(file_size%PACKAGE_SIZE > 0)
@@ -778,7 +806,9 @@ void upgrade(void)
 	Log(__FUNCTION__,"package_sum = %d\n",package_sum);
 	int package_size = 0;
 	int req_package_num = 0;
-	FILE *fd = fopen("/home/root/mcu.bin","rb");
+	//FILE *fd = fopen("/home/root/mcu.bin","rb");
+	
+	FILE *fd = fopen(ota_file_path,"rb");
 	if(fd == NULL)
 	{
 		Log(__FUNCTION__,"open failed\n");
@@ -787,13 +817,13 @@ void upgrade(void)
 
 	int step = 0;
 	//request
-	unsigned char step0_send[13] = {0xFF,0xBB,0x85,0x09,0x03,0x01,0x07,0x00,0x00,0x00,0x00,0x00,0x00};
-	step0_send[7] = (file_size >> 24) & 0xFF;
-	step0_send[8] = (file_size >> 16) & 0xFF;
-	step0_send[9] = (file_size >> 8) & 0xFF;
-	step0_send[10] = file_size & 0xFF;
-	step0_send[11] = (package_sum >> 8) & 0xFF;
-	step0_send[12] = package_sum & 0xFF;
+	unsigned char step0_send[14] = {0xFF,0xBB,0x85,0x0a,0x03,0x01,0x07,(unsigned char)type,0x00,0x00,0x00,0x00,0x00,0x00};
+	step0_send[8] = (file_size >> 24) & 0xFF;
+	step0_send[9] = (file_size >> 16) & 0xFF;
+	step0_send[10] = (file_size >> 8) & 0xFF;
+	step0_send[11] = file_size & 0xFF;
+	step0_send[12] = (package_sum >> 8) & 0xFF;
+	step0_send[13] = package_sum & 0xFF;
 	unsigned char step0_ack[8] = {0xFF,0xBB,0x05,0x04,0x01,0x01,0x07,0x01};
 	//start send
 	unsigned char step1_req[7] = {0xFF,0xBB,0x05,0x05,0x02,0x01,0x08};
@@ -811,12 +841,12 @@ void upgrade(void)
 		case 0://request
 			//FF  AA  F2  01  00
 			//FF  55  F2  01
-			step0_send[7] =((file_size>>24)&0xff);
-			step0_send[8] =((file_size>>16)&0xff);
-			step0_send[9] =((file_size>>8)&0xff);
-			step0_send[10] =(file_size&0xff);
-			step0_send[11] = ((package_sum>>8)&0xff);
-			step0_send[12] = (package_sum&0xff);
+			step0_send[8] =((file_size>>24)&0xff);
+			step0_send[9] =((file_size>>16)&0xff);
+			step0_send[10] =((file_size>>8)&0xff);
+			step0_send[11] =(file_size&0xff);
+			step0_send[12] = ((package_sum>>8)&0xff);
+			step0_send[13] = (package_sum&0xff);
 			upgrade_mcu_send(step0_send,sizeof(step0_send));
 			if((nread = mcu_read(mcu_fd, buff))>0)
 			{
@@ -855,7 +885,7 @@ void upgrade(void)
 					package_size = fread(read_buf,1,sizeof(read_buf),fd);	
 					if(package_size >= 251)  //251 + 5
 					{
-						Log_print(__FUNCTION__,"package_size = %d\n",package_size);
+						Log(__FUNCTION__,"package_size = %d\n",package_size);
 						step1_send[3] = ((package_size+5) >> 8) & 0xFF;
 						step1_send[4] = (package_size+5) & 0xFF;
 						step1_send[8] = (req_package_num >> 8) & 0xFF;
@@ -864,7 +894,7 @@ void upgrade(void)
 
 						upgrade_mcu_send(step1_send,package_size + 10);
 					}else if(package_size > 0){						
-						Log_print(__FUNCTION__,"package_size = %d\n",package_size);						
+						Log(__FUNCTION__,"package_size = %d\n",package_size);						
 						step1_send_end[3] = package_size+5;
 						step1_send_end[7] = (req_package_num >> 8) & 0xFF;
 						step1_send_end[8] = req_package_num & 0xFF;
@@ -1084,7 +1114,7 @@ void Deal_Air_Condition_Status(unsigned char *mcu_buf){
 			case 0x5:				
 				temp_status = (unsigned int)mcu_buf[offset++];
 				temp_air_condition_param->windLevel = temp_status;
-				Log(__FUNCTION__,"air condition wind = %d",temp_air_condition_param->temperature);
+				Log(__FUNCTION__,"air condition wind = %d",temp_air_condition_param->windLevel);
 				break;
 			case 0x6:				
 				temp_status = (unsigned int)mcu_buf[offset++];
@@ -1340,6 +1370,26 @@ void Deal_Basic_Infomation_Status(unsigned char *buf)
 				offset++;
 			}
 		}
+
+		
+		if(buf[offset] == 0xe){
+			offset++;
+			startMark = offset;	
+			memset(vcu_version,0,sizeof(vcu_version));
+			while(buf[offset] != '\0'){
+				vcu_version[offset-startMark] = buf[offset];
+				offset++;
+			}
+			
+			if(connect_ok)
+			{
+				logout(sock_cli,param.login_serial_num);
+				param.login_serial_num++;	
+				init_save_param(PARAM_PATH);
+				init_save_param(BAK_PARAM_PATH);
+				login(sock_cli,param.login_serial_num);
+			}
+		}
 		
 		idNum --;
 	}
@@ -1451,8 +1501,8 @@ void Deal_Vehicle_Param(unsigned char *mcu_buf){
 
 				}
 				offset++;
-				ack_door_start();		
 				Log(__FUNCTION__,"door lock status1 = %X %X",get_extend_vechicle_param()->door_lock_status,get_extend_vechicle_param()->door_lock_exception_status);
+				ack_door_start();		
 				break;
 			case 0x3:
 				if(mcu_buf[offset] == 0xff){
@@ -1481,9 +1531,8 @@ void Deal_Vehicle_Param(unsigned char *mcu_buf){
 
 				}
 				offset++;	
-				
-				ack_truck_lock_ctrl();
 				Log(__FUNCTION__,"door lock status2 = %X %X",get_extend_vechicle_param()->door_lock_status,get_extend_vechicle_param()->door_lock_exception_status);
+				ack_truck_lock_ctrl();
 				break;
 			case 0x5:
 				tempStatus = (unsigned int)mcu_buf[offset++];
@@ -1535,10 +1584,14 @@ void Deal_Vehicle_Param(unsigned char *mcu_buf){
 				
 				Log(__FUNCTION__,"high_low_beam_status status = %d",get_extend_vechicle_param()->low_beam_status);
 				break;
-			case 0xb:				
+			case 0xb:
 				tempStatus = (unsigned int)mcu_buf[offset++];
 				get_extend_vechicle_param()->fog_light_status = tempStatus;
-				offset++;
+				tempStatus = (unsigned int)mcu_buf[offset++];
+				if(tempStatus == 1){
+					get_extend_vechicle_param()->fog_light_status = 1;
+				}
+
 				Log(__FUNCTION__,"fog_light_statusstatus = %d",get_extend_vechicle_param()->fog_light_status);
 			    break;
 			case 0xc:
@@ -1551,7 +1604,9 @@ void Deal_Vehicle_Param(unsigned char *mcu_buf){
 				Log(__FUNCTION__,"right_left_cornering_lamp status = %d %d",get_extend_vechicle_param()->right_cornering_lamp);
 			    break;
 			case 0xd:
-				offset++;
+				tempStatus = (unsigned int)mcu_buf[offset++];			
+				get_extend_vechicle_param()->markLamp = tempStatus;
+				Log(__FUNCTION__,"light marklamp status = %d %d",get_extend_vechicle_param()->markLamp);
 				break;
 			default:
 
@@ -1582,15 +1637,19 @@ void Deal_Key_parameter(unsigned char* mcu_buf){
 					get_extend_vechicle_param()->engine_status = get_extend_vechicle_param()->electrify_status;
 					ack_engine_start();	
 				}	
+				ack_electromotor_start();
 				Log(__FUNCTION__,"door electrify_status = %d",get_extend_vechicle_param()->electrify_status);
 				break;
 			case 0x3:
 				offset++;
 				break;
 			case 0x4:
-				tbox_extend.rechargeMileage = mcu_buf[offset++]<<8;
-				tbox_extend.rechargeMileage += mcu_buf[offset++];
-				tbox_extend.rechargeMileage *= 5;
+				tbox_extend.rechargeMileage = (unsigned int)mcu_buf[offset++];
+				tbox_extend.rechargeMileage <<= 8;
+				tbox_extend.rechargeMileage += (unsigned int)mcu_buf[offset++];
+				if(tbox_extend.rechargeMileage != 0x0000ffff) {//0xffff
+					tbox_extend.rechargeMileage *= 5;
+				}
 				get_extend_vechicle_param()->rechargeMileage = tbox_extend.rechargeMileage;
 				break;
 			case 0x5:
@@ -1612,6 +1671,7 @@ void Deal_Key_parameter(unsigned char* mcu_buf){
 			
 			case 0x9:
 				temp_status = (unsigned int )mcu_buf[offset++];
+				get_extend_vechicle_param()->remote_enable_status = temp_status;
 				//if(temp_status == 2){
 				//	get_extend_vechicle_param()->door_lock_status &= 0xfffffff0; 
 				//}else{
@@ -1657,6 +1717,31 @@ void Deal_Alarm(unsigned char* mcu_buf)
 			lilegal_encroachment();
 		}
 		alertNum--;
+	}
+}
+
+void Deal_TboxRunning_Mode(unsigned char *buf,int len){	
+	int dataType;
+	if(buf[1] == 0xBB){
+		dataType = buf[6];
+	}else{
+		dataType = buf[7];
+	}
+
+	if(dataType == 0x01){
+		
+	}else if(dataType == 0x02){
+		if(buf[7] == 0x01){
+
+		}else if(buf[7] == 0x03){
+			get_file_upload_url();
+		}else{
+
+		}
+	}else if(dataType == 0x03){
+//		writeCanMessege(buf+7, len-7);
+	}else{
+
 	}
 }
 
@@ -1913,7 +1998,7 @@ void Deal_mcu_cmd(unsigned char* buf,int len)
 			Deal_Basic_Infomation_Status(buf);
 		}
 
-		//check_vehicle_status();
+		check_vehicle_status();
 	}
 	
 	if(buf[2] == MCU_ALERT)
@@ -1927,7 +2012,7 @@ void Deal_mcu_cmd(unsigned char* buf,int len)
 		if(buf[6] == 0x03)
 		{
 			mcu_ready = true;
-			unsigned char temp[9] = {CMD_HEAD,CMD_NOACK,PC_BASIC_INFOMATION,0x05,CHECK_DATA,0x03,0x01,0x02,0x03};
+			unsigned char temp[11] = {CMD_HEAD,CMD_NOACK,PC_BASIC_INFOMATION,0x07,CHECK_DATA,0x05,0x01,0x02,0x03,0x0c,0x0d};
 			//unsigned char temp[8] = {CMD_HEAD,CMD_NOACK,PC_BASIC_INFOMATION,0x04,CHECK_DATA,0x02,0x02,0x03};
 			mcu_send(temp, sizeof(temp));
 			check_vehicle_status();
@@ -1936,25 +2021,26 @@ void Deal_mcu_cmd(unsigned char* buf,int len)
 		get_upgrade();
 
 		if(upgrade_param.mcu_upgrade_status){
-					int ret = down_load_verify((char*)upgrade_param.mcu_upgrade_sign,(char*)upgrade_param.mcu_upgrade_path);
-					if(ret){			
-						if(mcu_upgrade == false)
-						{
-							if(mcu_upgrade == false)
-							{
-								system("mv /home/root/tbox_decrypt /home/root/mcu.bin");
-								system("sync");
-								mcu_upgrade = true;
-							}
-						}
-					}		
+			/*
+			int ret = down_load_verify((char*)upgrade_param.mcu_upgrade_sign,(char*)upgrade_param.mcu_upgrade_path);
+			if(ret){			
+				if(mcu_upgrade == false)
+				{
+					if(mcu_upgrade == false)
+					{
+						system("mv /home/root/tbox_decrypt /home/root/mcu.bin");
+						system("sync");
+						mcu_upgrade = true;
+					}
+				}
+			}	*/	
 		}	
 
 		
 		else if(buf[6] == 0x05 && buf[7] == 0x02)
 		{
 			get_upgrade();
-			if(upgrade_param.mcu_upgrade_status){/*
+			if(upgrade_param.mcu_upgrade_status){
 					int ret = down_load_verify((char*)upgrade_param.mcu_upgrade_sign,(char*)upgrade_param.mcu_upgrade_path);
 					if(ret){			
 						if(mcu_upgrade == false)
@@ -1966,7 +2052,8 @@ void Deal_mcu_cmd(unsigned char* buf,int len)
 								mcu_upgrade = true;
 							}
 						}
-					}	*/
+					}	
+					OTA_upgrade_type = 4;
 					mcu_upgrade = true;
 			}else{
 				if(real_wakeup)
@@ -1994,6 +2081,8 @@ void Deal_mcu_cmd(unsigned char* buf,int len)
 		Deal_Key_parameter(buf);
 	}else if(buf[2] == VEHICLE_PARAM){
 		Deal_Vehicle_Param(buf);
+	}else if(buf[2] == TBOX_MODE_SWITCH){
+		Deal_TboxRunning_Mode(buf,len);
 	}
 	else// if((buf[2] == CMD_TBOX_CAR_INFO)||(buf[2] == CMD_EXTRA_CAR_STATE))
 	{
@@ -2037,7 +2126,7 @@ void* uart_thread(void* uart_param)
 		}
 		if(mcu_ready && mcu_upgrade)
 		{
-			upgrade();
+			upgrade(OTA_upgrade_type);
 			mcu_upgrade = false;
 			//mcu_ready = false;
 		}
@@ -2058,7 +2147,7 @@ void* uart_thread(void* uart_param)
 			if(param.mcu_debug == 1)
 			{
 				
-				Log_print(__FUNCTION__,"Len %d\n",mcu_len); 
+				Log(__FUNCTION__,"MCU Read Len %d\n",mcu_len); 
 				for(i = 0;i < mcu_len;i++)
 				{			
 	 				Log_print("%X ",mcu_buf[i]);

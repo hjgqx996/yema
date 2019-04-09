@@ -5,6 +5,15 @@
 
 extern pthread_mutex_t log_mutex;
 
+int runModeType = 0;
+
+upload_file_param uploadFileParam = {
+										.fileMode = 0,
+										.startTime = 0,
+										.endTime = 0,
+										.fileName = "",
+									};
+
 param_t param = {
 	.VIN = "00000000000000000",
 	.ICCID = "00000000000000000000",
@@ -114,7 +123,7 @@ unsigned char app_version[32];
 unsigned char mcu_version[32];
 
 unsigned char hardware_version[32];
-
+unsigned char vcu_version[32];
 
 air_condition_param_t *get_air_conditon(int positon){
 	return &air_condition_param[positon];

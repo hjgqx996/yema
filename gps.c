@@ -552,7 +552,6 @@ int Ql_SendAT(char* atCmd, char* finalRsp, long timeout_ms)
 					    {
 					        //Log(__FUNCTION__,"\n< match >\n");
 					        bRcvFinalRsp = TRUE;
-							printf("strResponse is:%s\n",strResponse);
 					    }else{
 					        Log(__FUNCTION__,"\n< not final rsp >\n");
 					    }

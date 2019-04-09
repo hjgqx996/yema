@@ -10,6 +10,7 @@ extern "C"
 #include "audio.h"
 #include "http.h"
 #include "gps.h"
+#include "fileNetUpload.h"
 #include "HU.h"
 //#include "VPN.h"
 }
